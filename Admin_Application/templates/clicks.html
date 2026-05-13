@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Button Clicks | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Button Click Tracking{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Click behavior</p>
+        <h1 class="h3 fw-bold mb-0">Button & Link Clicks</h1>
+    </div>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_clicks', days=days, q=query) }}">Export CSV</a>
+</div>
+
+<section class="panel mb-4">
+    <form class="row g-3 align-items-end" method="get">
+        <div class="col-md-2">
+            <label class="form-label" for="days">Days</label>
+            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
+        </div>
+        <div class="col-md-8">
+            <label class="form-label" for="q">Search clicks</label>
+            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="IP, page, button text, target URL, browser">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-dark" type="submit">Filter</button>
+        </div>
+    </form>
+</section>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% else %}
+<div class="row g-4 mb-4">
+    <div class="col-xl-5">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Most Clicked Buttons</h2><span>Unique clickers included</span></div>
+            <ul class="stat-list">
+                {% for row in summary %}
+                    <li><span class="text-truncate">{{ row.label }} <small class="text-muted">({{ row.path }})</small></span><strong>{{ row.clicks }}</strong></li>
+                {% else %}
+                    <li class="text-muted">No clicks have been tracked yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+    <div class="col-xl-7">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Click Trend</h2><span>Top clicked elements</span></div>
+            <canvas id="clickChart" height="160"></canvas>
+        </section>
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel-heading"><h2>Click Event Log</h2><span>Includes visitor IP address</span></div>
+    <div class="table-responsive visitor-table">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Time UTC</th>
+                    <th>IP Address</th>
+                    <th>Button / Link</th>
+                    <th>Page</th>
+                    <th>Target URL</th>
+                    <th>Device</th>
+                    <th>Browser</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for click in clicks %}
+                <tr>
+                    <td class="text-nowrap">{{ click.created_at }}</td>
+                    <td><code>{{ click.ip_address }}</code></td>
+                    <td>
+                        <strong>{{ click.element_text or "Unlabeled click" }}</strong><br>
+                        <span class="text-muted small">{{ click.element_type }} {{ click.element_id or "" }}</span>
+                    </td>
+                    <td><code>{{ click.path }}</code></td>
+                    <td class="small text-break">{{ click.target_url or "-" }}</td>
+                    <td>{{ click.device_type or "Unknown" }}</td>
+                    <td>{{ click.browser or "Unknown" }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="text-muted">No clicks match this filter.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if summary %}
+<script>
+const clickLabels = {{ summary|map(attribute='label')|list|tojson }};
+const clickCounts = {{ summary|map(attribute='clicks')|list|tojson }};
+new Chart(document.getElementById('clickChart'), {
+    type: 'bar',
+    data: { labels: clickLabels.slice(0, 12), datasets: [{ label: 'Clicks', data: clickCounts.slice(0, 12), backgroundColor: '#c8102e' }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+});
+</script>
+{% endif %}
+{% endblock %}

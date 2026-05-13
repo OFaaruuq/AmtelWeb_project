@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Visitor Log | AMTEL Admin Analytics{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Raw visitor intelligence</p>
+        <h1 class="h3 fw-bold mb-0">Visitor Log</h1>
+    </div>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_visits', days=days, path=path, q=query) }}">Export CSV</a>
+</div>
+
+<section class="panel mb-4">
+    <form class="row g-3 align-items-end" method="get">
+        <div class="col-md-2">
+            <label class="form-label" for="days">Days</label>
+            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="path">Page path</label>
+            <select class="form-select" id="path" name="path">
+                <option value="">All pages</option>
+                {% for item in paths %}
+                    <option value="{{ item }}" {% if path == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="q">Search</label>
+            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="IP, city, country, browser, page, referrer">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-dark" type="submit">Filter</button>
+        </div>
+    </form>
+</section>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% else %}
+<section class="panel">
+    <div class="table-responsive visitor-table">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Time UTC</th>
+                    <th>IP Address</th>
+                    <th>Location</th>
+                    <th>Page</th>
+                    <th>Device</th>
+                    <th>Browser</th>
+                    <th>ISP</th>
+                    <th>Referrer</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for visit in visits %}
+                <tr class="{% if visit.is_target_page %}target-row{% endif %}">
+                    <td class="text-nowrap">{{ visit.created_at }}</td>
+                    <td><code>{{ visit.ip_address }}</code></td>
+                    <td>
+                        <strong>{{ visit.city or "Unknown" }}</strong><br>
+                        <span class="text-muted small">{{ visit.region or "" }} {{ visit.country or "" }}</span>
+                    </td>
+                    <td>
+                        <strong>{{ visit.page_title }}</strong><br>
+                        <code>{{ visit.path }}</code>
+                    </td>
+                    <td>{{ visit.device_type or "Unknown" }}</td>
+                    <td>{{ visit.browser or "Unknown" }}</td>
+                    <td class="small">{{ visit.isp or "Unknown" }}</td>
+                    <td class="small text-break">{{ visit.referrer or "Direct" }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="text-muted">No visits match this filter.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

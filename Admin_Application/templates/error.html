@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Error | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Application Error{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-heading"><h2>Something went wrong</h2><span>Logged for review</span></div>
+    <p class="text-muted mb-0">{{ error }}</p>
+</section>
+{% endblock %}

@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Overview Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Live website monitoring</p>
+        <h1 class="h3 fw-bold mb-0">Analytics Dashboard</h1>
+    </div>
+    <form class="d-flex gap-2" method="get">
+        <select class="form-select" name="days" aria-label="Analytics window">
+            {% for option in [7, 14, 30, 90, 365] %}
+                <option value="{{ option }}" {% if days == option %}selected{% endif %}>Last {{ option }} days</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-dark" type="submit">Apply</button>
+    </form>
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% elif dashboard %}
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Total Visitors</span>
+                <strong>{{ dashboard.overview.total_visits }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Active Users</span>
+                <strong>{{ dashboard.overview.active_users }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Daily Visitors</span>
+                <strong>{{ dashboard.overview.daily_visitors }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Monthly Visitors</span>
+                <strong>{{ dashboard.overview.monthly_visitors }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Unique Visitors</span>
+                <strong>{{ dashboard.overview.unique_visitors }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Returning Visitors</span>
+                <strong>{{ dashboard.overview.returning_visitors }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Bounce Rate</span>
+                <strong>{{ dashboard.overview.bounce_rate }}%</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Job Conversion Proxy</span>
+                <strong>{{ dashboard.overview.conversion_rate }}%</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Avg. Time Spent</span>
+                <strong>{{ dashboard.overview.average_time_spent_seconds }}s</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Total Button Clicks</span>
+                <strong>{{ dashboard.overview.total_clicks }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Visitors Who Clicked</span>
+                <strong>{{ dashboard.overview.unique_clickers }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Total Conversions</span>
+                <strong>{{ dashboard.overview.total_conversions }}</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Avg. Active Time</span>
+                <strong>{{ dashboard.overview.average_active_seconds }}s</strong>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <span>Avg. Scroll Depth</span>
+                <strong>{{ dashboard.overview.average_scroll_percent }}%</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-8">
+            <section class="panel">
+                <div class="panel-heading">
+                    <h2>Traffic Trends</h2>
+                    <span>{{ days }} day trend</span>
+                </div>
+                <canvas id="trafficTrend" height="120"></canvas>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="panel">
+                <div class="panel-heading">
+                    <h2>Real-Time Snapshot</h2>
+                    <span>Last 15 minutes</span>
+                </div>
+                <div class="mini-grid">
+                    <div><span>Live visitors</span><strong>{{ dashboard.live.active_visitors }}</strong></div>
+                    <div><span>Live page views</span><strong>{{ dashboard.live.live_page_views }}</strong></div>
+                    <div><span>Active sessions</span><strong>{{ dashboard.live.active_sessions }}</strong></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-xl-6">
+            <section class="panel">
+                <div class="panel-heading">
+                    <h2>Tracked Priority Pages</h2>
+                    <span>Index, careers, OSS/BSS job</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>Page</th><th>Path</th><th>Visits</th><th>Visitors</th></tr></thead>
+                        <tbody>
+                        {% for row in dashboard.target_pages %}
+                            <tr>
+                                <td>{{ row.page_title }}</td>
+                                <td><code>{{ row.path }}</code></td>
+                                <td>{{ row.visits }}</td>
+                                <td>{{ row.visitors }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="4" class="text-muted">No target page visits yet.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+        <div class="col-xl-6">
+            <section class="panel">
+                <div class="panel-heading">
+                    <h2>Geographic Traffic Map</h2>
+                    <span>Country distribution</span>
+                </div>
+                <canvas id="countryChart" height="150"></canvas>
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Browsers</h2><span>Client software</span></div>
+                <ul class="stat-list">
+                    {% for row in dashboard.browsers %}
+                        <li><span>{{ row.label }}</span><strong>{{ row.visits }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No browser data yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Traffic Sources</h2><span>Referrers</span></div>
+                <ul class="stat-list">
+                    {% for row in dashboard.referrers %}
+                        <li><span class="text-truncate">{{ row.label }}</span><strong>{{ row.visits }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No referrer data yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Recent Visits</h2><span>Latest activity</span></div>
+                <ul class="visit-list">
+                    {% for row in dashboard.recent_visits %}
+                        <li>
+                            <strong>{{ row.ip_address }}</strong>
+                            <span>{{ row.page_title }} · {{ row.city or "Unknown" }}, {{ row.country or "Unknown" }}</span>
+                        </li>
+                    {% else %}
+                        <li class="text-muted">No visits recorded yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-xl-12">
+            <section class="panel">
+                <div class="panel-heading"><h2>Most Clicked Buttons & Links</h2><span>Tracked from the public website</span></div>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>Button / Link</th><th>Page</th><th>Clicks</th><th>Visitors</th><th>Sessions</th></tr></thead>
+                        <tbody>
+                        {% for row in dashboard.top_clicks %}
+                            <tr>
+                                <td>{{ row.label }}</td>
+                                <td><code>{{ row.path }}</code></td>
+                                <td>{{ row.clicks }}</td>
+                                <td>{{ row.visitors }}</td>
+                                <td>{{ row.sessions }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="5" class="text-muted">No button or link clicks tracked yet.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-xl-6">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Conversions</h2><span>Contact, newsletter, job apply</span></div>
+                <ul class="stat-list">
+                    {% for row in dashboard.top_conversions %}
+                        <li><span>{{ row.label }} <small class="text-muted">{{ row.conversion_type }}</small></span><strong>{{ row.conversions }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No conversions tracked yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+        <div class="col-xl-6">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Time Spent By Page</h2><span>Average active seconds</span></div>
+                <ul class="stat-list">
+                    {% for row in dashboard.top_engagement %}
+                        <li><span class="text-truncate">{{ row.path }}</span><strong>{{ row.average_active_seconds|round|int }}s</strong></li>
+                    {% else %}
+                        <li class="text-muted">No engagement data yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Top Visited Pages</h2><span>Page views</span></div>
+                <ul class="stat-list">
+                    {% for row in dashboard.top_pages %}
+                        <li><span class="text-truncate">{{ row.path }}</span><strong>{{ row.visits }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No page data yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Entry Pages</h2><span>First page seen</span></div>
+                <ul class="stat-list">
+                    {% for row in dashboard.entry_pages %}
+                        <li><span class="text-truncate">{{ row.path }}</span><strong>{{ row.visits }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No entry data yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Exit Pages</h2><span>Last page seen</span></div>
+                <ul class="stat-list">
+                    {% for row in dashboard.exit_pages %}
+                        <li><span class="text-truncate">{{ row.path }}</span><strong>{{ row.visits }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No exit data yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-xl-12">
+            <section class="panel">
+                <div class="panel-heading"><h2>Daily / Weekly / Monthly Reports</h2><span>Automated summaries</span></div>
+                <div class="row">
+                    {% for name, rows in dashboard.reports.items() %}
+                        <div class="col-lg-4">
+                            <h3 class="h6 text-uppercase text-muted">{{ name }}</h3>
+                            <ul class="stat-list">
+                                {% for row in rows[:6] %}
+                                    <li><span>{{ row.period }}</span><strong>{{ row.visits }} / {{ row.visitors }}</strong></li>
+                                {% else %}
+                                    <li class="text-muted">No report data yet.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if dashboard %}
+<script>
+const dailyLabels = {{ dashboard.daily|map(attribute='label')|list|tojson }};
+const dailyVisits = {{ dashboard.daily|map(attribute='visits')|list|tojson }};
+const dailyVisitors = {{ dashboard.daily|map(attribute='visitors')|list|tojson }};
+const countryLabels = {{ dashboard.countries|map(attribute='label')|list|tojson }};
+const countryVisits = {{ dashboard.countries|map(attribute='visits')|list|tojson }};
+
+new Chart(document.getElementById('trafficTrend'), {
+    type: 'line',
+    data: {
+        labels: dailyLabels,
+        datasets: [
+            { label: 'Visits', data: dailyVisits, borderColor: '#c8102e', backgroundColor: 'rgba(200, 16, 46, .12)', fill: true, tension: .35 },
+            { label: 'Unique visitors', data: dailyVisitors, borderColor: '#111827', backgroundColor: 'rgba(17, 24, 39, .08)', tension: .35 }
+        ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+});
+
+new Chart(document.getElementById('countryChart'), {
+    type: 'bar',
+    data: { labels: countryLabels.slice(0, 10), datasets: [{ label: 'Visits', data: countryVisits.slice(0, 10), backgroundColor: '#c8102e' }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+});
+</script>
+{% endif %}
+{% endblock %}

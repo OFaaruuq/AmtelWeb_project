@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Visitor IP Addresses | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Visitor IP Addresses{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Full visitor visibility</p>
+        <h1 class="h3 fw-bold mb-0">All Visitor IP Addresses</h1>
+    </div>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_visitor_ips', days=days, q=query) }}">Export CSV</a>
+</div>
+
+<section class="panel mb-4">
+    <form class="row g-3 align-items-end" method="get">
+        <div class="col-md-2">
+            <label class="form-label" for="days">Days</label>
+            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
+        </div>
+        <div class="col-md-8">
+            <label class="form-label" for="q">Search visitors</label>
+            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="IP, city, country, browser, device">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-dark" type="submit">Filter</button>
+        </div>
+    </form>
+</section>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% else %}
+<section class="panel">
+    <div class="panel-heading">
+        <h2>Visitor IP Log</h2>
+        <span>{{ visitor_ips|length }} unique IP/location/device rows</span>
+    </div>
+    <div class="table-responsive visitor-table">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>IP Address</th>
+                    <th>Visits</th>
+                    <th>Sessions</th>
+                    <th>First Seen UTC</th>
+                    <th>Last Seen UTC</th>
+                    <th>Location</th>
+                    <th>Device</th>
+                    <th>ISP</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for visitor in visitor_ips %}
+                <tr>
+                    <td><code>{{ visitor.ip_address }}</code></td>
+                    <td>{{ visitor.visits }}</td>
+                    <td>{{ visitor.sessions }}</td>
+                    <td class="text-nowrap">{{ visitor.first_seen_at }}</td>
+                    <td class="text-nowrap">{{ visitor.last_seen_at }}</td>
+                    <td>{{ visitor.city }}, {{ visitor.country }}</td>
+                    <td>{{ visitor.device_type }} / {{ visitor.browser }}</td>
+                    <td class="small">{{ visitor.isp or "Unknown" }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="text-muted">No visitor IPs match this filter.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

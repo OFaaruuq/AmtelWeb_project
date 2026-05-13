@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Security | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Authentication & Security{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-uppercase text-danger fw-bold small mb-1">Professional security standards</p>
+    <h1 class="h3 fw-bold mb-0">Authentication & Security</h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-6">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Implemented Controls</h2><span>Admin app</span></div>
+            <ul class="check-list">
+                <li>Session authentication with protected dashboard routes and server-side session revocation checks every {{ session_check_interval_seconds }} seconds.</li>
+                <li>CSRF tokens on login and logout forms, plus authenticated mutating requests.</li>
+                <li>Login rate limiting by IP address: {{ login_rate_limit }} attempts per {{ login_rate_window_seconds }} seconds.</li>
+                <li>Secure cookie options: HttpOnly enabled, SameSite={{ same_site_policy }}, Secure={{ "enabled" if secure_cookie_enabled else "disabled for local HTTP" }}.</li>
+                <li>Parameterized MySQL queries for SQL injection prevention.</li>
+                <li>Audit logging for admin login, logout, request logs, errors, and suspicious events.</li>
+                <li>REST API endpoints protected by the same admin session and return JSON 401 when unauthenticated.</li>
+            </ul>
+        </section>
+    </div>
+    <div class="col-xl-6">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Password Hashing</h2><span>Status</span></div>
+            {% if password_hash_configured %}
+                <div class="alert alert-success">`ADMIN_PASSWORD_HASH` is configured. Plain passwords are not required.</div>
+            {% else %}
+                <div class="alert alert-warning">`ADMIN_PASSWORD_HASH` is not configured. Add a generated hash to `.env` before production.</div>
+            {% endif %}
+            <p class="text-muted">Generate a hash locally:</p>
+            <pre class="command-box">{{ generated_hash_command }}</pre>
+        </section>
+    </div>
+</div>
+{% endblock %}

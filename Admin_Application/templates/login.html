@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Login | AMTEL Admin Analytics{% endblock %}
+
+{% block content %}
+<section class="login-shell">
+    <div class="login-card shadow-lg">
+        <div class="mb-4">
+            <p class="text-uppercase text-danger fw-bold small mb-2">AMTEL Admin</p>
+            <h1 class="h3 fw-bold mb-2">Website Analytics</h1>
+            <p class="text-muted mb-0">Sign in to monitor page visits, IP addresses, locations, devices, browsers, and referrals.</p>
+        </div>
+        <form method="post" class="vstack gap-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div>
+                <label class="form-label" for="username">Username</label>
+                <input class="form-control form-control-lg" id="username" name="username" autocomplete="username" required autofocus>
+            </div>
+            <div>
+                <label class="form-label" for="password">Password</label>
+                <input class="form-control form-control-lg" id="password" name="password" type="password" autocomplete="current-password" required>
+            </div>
+            <button class="btn btn-danger btn-lg w-100" type="submit">Login</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

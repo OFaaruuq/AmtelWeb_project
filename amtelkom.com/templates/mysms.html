@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}My SMS Platform - AMTEL Ltd{% endblock %}
+{% block keywords %}AMTEL My SMS, SMS API Somalia, Bulk SMS Somalia, SMS platform Somalia{% endblock %}
+{% block description %}Create SMS campaigns, reach Somali audiences, and track results with AMTEL's My SMS Platform.{% endblock %}
+
+{% block content %}
+<section class="mysms-hero">
+    <div class="container">
+        <div class="row align-items-center justify-content-center">
+            <div class="col-lg-9 text-center wow fadeInUp" data-wow-delay="0.1s">
+                <span class="mysms-eyebrow">{{ hero.eyebrow }}</span>
+                <h1 class="display-4 text-white mb-4">{{ hero.title }}</h1>
+                <p class="lead text-white-50 mb-4">
+                    {{ hero.lead }}
+                </p>
+                <p class="text-white-50 mb-5">
+                    {{ hero.description }}
+                </p>
+                <div class="d-flex flex-wrap justify-content-center gap-3">
+                    <a href="{{ url_for('contact') }}" class="btn btn-primary py-3 px-5">Get Started Now</a>
+                    <a href="#mysms-plans" class="btn btn-light py-3 px-5">View Plans</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="mysms-plans" class="pricing-content section-padding bg-light">
+    <div class="container">
+        <div class="text-center mx-auto mb-5 wow fadeInUp mysms-heading" data-wow-delay="0.1s">
+            <h6 class="text-primary text-uppercase mb-2">Our My SMS Plans</h6>
+            <h2 class="display-6 mb-3">Choose the right plan for your business messaging needs</h2>
+        </div>
+        <div class="row g-4 text-center justify-content-center">
+            {% set plans = [
+                ("Business Level", "$0.015", "1,000 - 9,999 Local SMS"),
+                ("Institution Level 3", "$0.01", "10,000 - 49,999 Local SMS"),
+                ("Institution Level 4", "$0.008", "50,000 - 99,999 Local SMS"),
+                ("Institution Level 1", "$0.006", "100,000 - 999,999 Local SMS"),
+                ("Institution Level 2", "$0.004", "1M+ Local SMS")
+            ] %}
+            {% for name, price, volume in plans %}
+                <div class="col-12 col-md-6 col-lg-4 wow fadeInUp" data-wow-duration="1s" data-wow-delay="{{ 0.1 + (loop.index0 % 3) * 0.1 }}s">
+                    <div class="pricing_design">
+                        <div class="single-pricing">
+                            <div class="price-head">
+                                <h2>{{ name }} Package</h2>
+                                <hr class="hr">
+                                <h1>{{ price }}</h1>
+                                <span>/ SMS</span>
+                            </div>
+                            <ul>
+                                <li><i class="fa fa-check"></i>{{ volume }}</li>
+                                <li><i class="fa fa-check"></i>Valid for 90 Days</li>
+                                <li><i class="fa fa-check"></i>SMS API Only</li>
+                                <li><i class="fa fa-check"></i>24/7 Support</li>
+                            </ul>
+                            <a href="{{ url_for('contact') }}" class="price_btn">Recharge Now!</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="container-xxl py-6">
+    <div class="container">
+        <div class="row g-5 align-items-start">
+            <div class="col-lg-5 wow fadeInUp" data-wow-delay="0.1s">
+                <h6 class="text-primary text-uppercase mb-2">Frequently Asked Questions</h6>
+                <h2 class="display-6 mb-4">Everything you need to know about My SMS</h2>
+                <p class="mb-4">Have more questions about pricing, campaigns, or technical setup?</p>
+                <a href="{{ url_for('contact') }}" class="btn btn-primary py-3 px-5">Contact Sales</a>
+            </div>
+            <div class="col-lg-7 wow fadeInUp" data-wow-delay="0.3s">
+                <div class="accordion mysms-faq" id="mysmsFaq">
+                    <div class="accordion-item">
+                        <h3 class="accordion-header" id="faqHeading1">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapse1" aria-expanded="true" aria-controls="faqCollapse1">
+                                Why choose SMS over email marketing?
+                            </button>
+                        </h3>
+                        <div id="faqCollapse1" class="accordion-collapse collapse show" aria-labelledby="faqHeading1" data-bs-parent="#mysmsFaq">
+                            <div class="accordion-body">SMS is direct, fast, and easy to read on any mobile phone, making it ideal for urgent offers, reminders, and service notifications.</div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header" id="faqHeading2">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapse2" aria-expanded="false" aria-controls="faqCollapse2">
+                                What are SMS campaigns used for?
+                            </button>
+                        </h3>
+                        <div id="faqCollapse2" class="accordion-collapse collapse" aria-labelledby="faqHeading2" data-bs-parent="#mysmsFaq">
+                            <div class="accordion-body">Businesses use SMS campaigns for promotions, alerts, customer updates, appointment reminders, surveys, and service automation.</div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header" id="faqHeading3">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapse3" aria-expanded="false" aria-controls="faqCollapse3">
+                                How much does My SMS cost?
+                            </button>
+                        </h3>
+                        <div id="faqCollapse3" class="accordion-collapse collapse" aria-labelledby="faqHeading3" data-bs-parent="#mysmsFaq">
+                            <div class="accordion-body">Pricing depends on the package volume. Plans start from $0.015 per SMS and improve as your message volume grows.</div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header" id="faqHeading4">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapse4" aria-expanded="false" aria-controls="faqCollapse4">
+                                How many SMS can I send?
+                            </button>
+                        </h3>
+                        <div id="faqCollapse4" class="accordion-collapse collapse" aria-labelledby="faqHeading4" data-bs-parent="#mysmsFaq">
+                            <div class="accordion-body">You can start from 1,000 local SMS and scale to 1M+ local SMS based on your selected package.</div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header" id="faqHeading5">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapse5" aria-expanded="false" aria-controls="faqCollapse5">
+                                What are the terms and conditions attached to service?
+                            </button>
+                        </h3>
+                        <div id="faqCollapse5" class="accordion-collapse collapse" aria-labelledby="faqHeading5" data-bs-parent="#mysmsFaq">
+                            <div class="accordion-body">Each package is valid for 90 days, supports SMS API usage, and includes 24/7 support. Contact AMTEL for complete service terms.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

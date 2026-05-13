@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Time Spent | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Time Spent & Engagement{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Engagement depth</p>
+        <h1 class="h3 fw-bold mb-0">Time Spent</h1>
+    </div>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_engagement', days=days, q=query) }}">Export CSV</a>
+</div>
+
+<section class="panel mb-4">
+    <form class="row g-3 align-items-end" method="get">
+        <div class="col-md-2">
+            <label class="form-label" for="days">Days</label>
+            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
+        </div>
+        <div class="col-md-8">
+            <label class="form-label" for="q">Search engagement</label>
+            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="IP, page, title, browser">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-dark" type="submit">Filter</button>
+        </div>
+    </form>
+</section>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% else %}
+<div class="row g-4 mb-4">
+    <div class="col-xl-5">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Top Engaged Pages</h2><span>Average active seconds</span></div>
+            <ul class="stat-list">
+                {% for row in summary %}
+                    <li><span class="text-truncate">{{ row.path }}</span><strong>{{ row.average_active_seconds|round|int }}s</strong></li>
+                {% else %}
+                    <li class="text-muted">No engagement samples yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+    <div class="col-xl-7">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Engagement Chart</h2><span>Average active seconds</span></div>
+            <canvas id="engagementChart" height="160"></canvas>
+        </section>
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel-heading"><h2>Engagement Event Log</h2><span>Time and scroll depth</span></div>
+    <div class="table-responsive visitor-table">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Time UTC</th><th>IP Address</th><th>Page</th><th>Active Time</th><th>Max Scroll</th><th>Device</th><th>Browser</th></tr></thead>
+            <tbody>
+            {% for item in engagement %}
+                <tr>
+                    <td class="text-nowrap">{{ item.created_at }}</td>
+                    <td><code>{{ item.ip_address }}</code></td>
+                    <td><code>{{ item.path }}</code></td>
+                    <td>{{ item.active_seconds }}s</td>
+                    <td>{{ item.max_scroll_percent }}%</td>
+                    <td>{{ item.device_type or "Unknown" }}</td>
+                    <td>{{ item.browser or "Unknown" }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="text-muted">No engagement events match this filter.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if summary %}
+<script>
+const engagementLabels = {{ summary|map(attribute='path')|list|tojson }};
+const engagementSeconds = {{ summary|map(attribute='average_active_seconds')|list|tojson }};
+new Chart(document.getElementById('engagementChart'), {
+    type: 'bar',
+    data: { labels: engagementLabels.slice(0, 12), datasets: [{ label: 'Avg. seconds', data: engagementSeconds.slice(0, 12), backgroundColor: '#111827' }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ data.title if data else "Analytics" }} | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}{{ data.title if data else "Analytics" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Dedicated analytics dashboard</p>
+        <h1 class="h3 fw-bold mb-1">{{ data.title if data else "Analytics" }}</h1>
+        <p class="text-muted mb-0">{{ data.subtitle if data else "" }}</p>
+    </div>
+    <form class="d-flex gap-2" method="get">
+        <select class="form-select" name="days" aria-label="Analytics window">
+            {% for option in [7, 14, 30, 90, 365] %}
+                <option value="{{ option }}" {% if days == option %}selected{% endif %}>Last {{ option }} days</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-dark" type="submit">Apply</button>
+    </form>
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% elif data %}
+<div class="row g-4">
+    <div class="col-xl-7">
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>Performance Trend</h2>
+                <span>Visits by segment</span>
+            </div>
+            <canvas id="breakdownChart" height="160"></canvas>
+        </section>
+    </div>
+    <div class="col-xl-5">
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>Summary</h2>
+                <span>{{ days }} days</span>
+            </div>
+            <div class="mini-grid">
+                <div><span>Total visits</span><strong>{{ data.rows|sum(attribute='visits') }}</strong></div>
+                <div><span>Segments</span><strong>{{ data.rows|length }}</strong></div>
+                <div><span>Top segment</span><strong>{{ data.rows[0].label if data.rows else "None" }}</strong></div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<section class="panel mt-4">
+    <div class="panel-heading">
+        <h2>Detailed Data</h2>
+        <span>Filter-ready analytics table</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Segment</th>
+                    <th>Path</th>
+                    <th>Visits</th>
+                    <th>Unique Visitors</th>
+                    <th>Extra</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in data.rows %}
+                <tr>
+                    <td>{{ row.label }}</td>
+                    <td><code>{{ row.path or "-" }}</code></td>
+                    <td>{{ row.visits }}</td>
+                    <td>{{ row.visitors }}</td>
+                    <td class="small text-muted">
+                        {% if row.target_visits is defined %}Target visits: {{ row.target_visits }}{% endif %}
+                        {% if row.countries is defined %}Countries: {{ row.countries }}{% endif %}
+                        {% if row.sources is defined %}Sources: {{ row.sources }}{% endif %}
+                        {% if row.latitude is defined and row.latitude %}Lat/Lon: {{ row.latitude }}, {{ row.longitude }}{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="text-muted">No analytics data for this window.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if data %}
+<script>
+const labels = {{ data.rows|map(attribute='label')|list|tojson }};
+const visits = {{ data.rows|map(attribute='visits')|list|tojson }};
+const visitors = {{ data.rows|map(attribute='visitors')|list|tojson }};
+new Chart(document.getElementById('breakdownChart'), {
+    type: 'bar',
+    data: {
+        labels: labels.slice(0, 15),
+        datasets: [
+            { label: 'Visits', data: visits.slice(0, 15), backgroundColor: '#c8102e' },
+            { label: 'Unique visitors', data: visitors.slice(0, 15), backgroundColor: '#111827' }
+        ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+});
+</script>
+{% endif %}
+{% endblock %}

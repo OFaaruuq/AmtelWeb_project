@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Real-Time Monitoring | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Real-Time Monitoring{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Live monitoring</p>
+        <h1 class="h3 fw-bold mb-0">Real-Time Monitoring</h1>
+    </div>
+    <a class="btn btn-outline-danger" href="{{ url_for('api_realtime') }}">JSON Feed</a>
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% elif realtime %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="metric-card"><span>Live Visitors</span><strong>{{ realtime.active_visitors }}</strong></div></div>
+    <div class="col-md-4"><div class="metric-card"><span>Live Page Views</span><strong>{{ realtime.live_page_views }}</strong></div></div>
+    <div class="col-md-4"><div class="metric-card"><span>Active Sessions</span><strong>{{ realtime.active_sessions }}</strong></div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-5">
+        <section class="panel">
+            <div class="panel-heading"><h2>Current Locations</h2><span>Last 15 minutes</span></div>
+            <ul class="stat-list">
+                {% for row in realtime.current_locations %}
+                    <li><span>{{ row.city }}, {{ row.country }}</span><strong>{{ row.visitors }}</strong></li>
+                {% else %}
+                    <li class="text-muted">No live locations right now.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+    <div class="col-xl-7">
+        <section class="panel">
+            <div class="panel-heading"><h2>Live Page Views</h2><span>Recent visitor stream</span></div>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>Time UTC</th><th>IP</th><th>Page</th><th>Location</th><th>Device</th></tr></thead>
+                    <tbody>
+                    {% for row in realtime.recent_page_views %}
+                        <tr>
+                            <td class="text-nowrap">{{ row.created_at }}</td>
+                            <td><code>{{ row.ip_address }}</code></td>
+                            <td><code>{{ row.path }}</code></td>
+                            <td>{{ row.city or "Unknown" }}, {{ row.country or "Unknown" }}</td>
+                            <td>{{ row.device_type or "Unknown" }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="text-muted">No page views in the live window.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

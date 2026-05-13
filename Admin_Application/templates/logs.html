@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Logs & Monitoring | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Logs & Monitoring{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-uppercase text-danger fw-bold small mb-1">Operational visibility</p>
+    <h1 class="h3 fw-bold mb-0">Logs & Monitoring</h1>
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% else %}
+<div class="row g-4">
+    {% for name, rows in logs.items() %}
+    <div class="col-xl-6">
+        <section class="panel h-100">
+            <div class="panel-heading">
+                <h2>{{ name|title }} Logs</h2>
+                <span>Latest {{ rows|length }}</span>
+            </div>
+            <div class="table-responsive log-table">
+                <table class="table table-sm align-middle">
+                    <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td class="text-nowrap">{{ row.created_at }}</td>
+                            <td class="small text-break">
+                                {% if name == "requests" %}
+                                    <strong>{{ row.method }} {{ row.path }}</strong><br>
+                                    Status {{ row.status_code }} · {{ row.duration_ms }} ms · {{ row.ip_address }}
+                                {% elif name == "errors" %}
+                                    <strong>{{ row.level }}</strong> {{ row.message }}<br>
+                                    <code>{{ row.path or "-" }}</code>
+                                {% elif name == "suspicious" %}
+                                    <strong>{{ row.severity }}</strong> {{ row.event_type }}<br>
+                                    <code>{{ row.ip_address or "-" }}</code>
+                                {% else %}
+                                    <strong>{{ row.action }}</strong> by {{ row.admin_username or "unknown" }}<br>
+                                    <code>{{ row.ip_address or "-" }}</code>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td class="text-muted">No {{ name }} logs yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

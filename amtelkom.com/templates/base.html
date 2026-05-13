@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}AMTEL Ltd{% endblock %}</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta name="keywords" content="{% block keywords %}AMTEL Ltd, Telecommunications Somalia, MyCash, Cloud services, ISP services{% endblock %}">
+    <meta name="description" content="{% block description %}AMTEL Ltd provides mobile, data, financial, cloud, and broadband services across Somalia.{% endblock %}">
+
+    <link href="/img/amtelkom-logo.png" rel="icon">
+    <link href="/img/amtelkom-logo.png" rel="apple-touch-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/lib/animate/animate.min.css" rel="stylesheet">
+    <link href="/lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+    <link href="/css/bootstrap.min.css?v=responsive-1" rel="stylesheet">
+    <link href="/css/style.css?v=responsive-2" rel="stylesheet">
+</head>
+
+<body>
+    <div id="spinner" class="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center">
+        <div class="spinner-grow text-primary" role="status"></div>
+    </div>
+
+    <div class="container-fluid p-0 bg-amtel-red">
+        <div class="row gx-0 d-none d-lg-flex">
+            <div class="col-lg-7 px-5 text-start">
+                <div class="h-100 d-inline-flex align-items-center me-4">
+                    <small class="fa fa-map-marker-alt text-white me-2"></small>
+                    <small class="text-white">{{ site.address }}</small>
+                </div>
+                <div class="h-100 d-inline-flex align-items-center">
+                    <small class="far fa-clock text-white me-2"></small>
+                    <small class="text-white">{{ site.hours }}</small>
+                </div>
+            </div>
+            <div class="col-lg-5 px-5 text-end">
+                <div class="h-100 d-inline-flex align-items-center me-4">
+                    <small class="fa fa-phone-alt text-white me-2"></small>
+                    <a href="tel:+252710000000" class="text-white text-decoration-none">
+                        <small>{{ site.phone }}</small>
+                    </a>
+                </div>
+                <div class="h-100 d-inline-flex align-items-center mx-n2">
+                    <a class="btn btn-square btn-link rounded-0 border-0 border-end border-secondary" href="https://www.facebook.com/Amtelkom?locale=en_GB" target="_blank" rel="noopener noreferrer" aria-label="AMTEL Facebook"><i class="fab fa-facebook-f text-white"></i></a>
+                    <a class="btn btn-square btn-link rounded-0 border-0 border-end border-secondary" href="https://twitter.com/amtelkom" target="_blank" rel="noopener noreferrer" aria-label="AMTEL Twitter"><i class="fab fa-twitter text-white"></i></a>
+                    <a class="btn btn-square btn-link rounded-0 border-0 border-end border-secondary" href="https://www.linkedin.com/company/amtelkom/posts/?feedView=all" target="_blank" rel="noopener noreferrer" aria-label="AMTEL LinkedIn"><i class="fab fa-linkedin-in text-white"></i></a>
+                    <a class="btn btn-square btn-link rounded-0" href="https://www.instagram.com/amtelkom" target="_blank" rel="noopener noreferrer" aria-label="AMTEL Instagram"><i class="fab fa-instagram text-white"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">
+        <a href="{{ url_for('home') }}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5">
+            <img src="/img/amtelogo.png" alt="AMTEL Ltd Logo" class="amtel-logo">
+        </a>
+        <button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+            <i class="fa fa-bars"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarCollapse">
+            <div class="navbar-nav ms-auto p-4 p-lg-0">
+                <a href="{{ url_for('home') }}" class="nav-item nav-link {% if active_page == 'home' %}active{% endif %}">Home</a>
+                <div class="nav-item dropdown">
+                    <a href="/#about-section" class="nav-link dropdown-toggle {% if active_page == 'career' %}active{% endif %}" data-bs-toggle="dropdown">Who we are</a>
+                    <div class="dropdown-menu bg-light m-0">
+                        <a href="/#about-section" class="dropdown-item">About Us</a>
+                        <a href="{{ url_for('careers') }}" class="dropdown-item {% if active_page == 'career' %}active{% endif %}">Career</a>
+                        <a href="/terms" class="dropdown-item">Terms and Conditions</a>
+                    </div>
+                </div>
+                <div class="nav-item dropdown">
+                    <a href="/#personal-products" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Personal</a>
+                    <div class="dropdown-menu bg-light m-0">
+                        <a href="/#personal-products" class="dropdown-item">Personal Products</a>
+                        <a href="/#pricing" class="dropdown-item">Pricing Plans</a>
+                    </div>
+                </div>
+                <div class="nav-item dropdown">
+                    <a href="/#business-products" class="nav-link dropdown-toggle {% if active_page == 'mysms' %}active{% endif %}" data-bs-toggle="dropdown">Business</a>
+                    <div class="dropdown-menu bg-light m-0">
+                        <a href="/#business-products" class="dropdown-item">Business Products</a>
+                        <a href="{{ url_for('mysms') }}" class="dropdown-item {% if active_page == 'mysms' %}active{% endif %}">My SMS API</a>
+                    </div>
+                </div>
+                <a href="{{ url_for('contact') }}" class="nav-item nav-link {% if active_page == 'contact' %}active{% endif %}">Contact US</a>
+            </div>
+        </div>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container pt-4">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} mb-0" role="alert">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <div class="container-fluid bg-dark text-light footer my-6 mb-0 py-6 wow fadeIn" data-wow-delay="0.1s">
+        <div class="container">
+            <div class="row g-5">
+                <div class="col-lg-3 col-md-6">
+                    <img src="/img/amtelogo.png" alt="AMTEL Ltd Logo" class="amtel-logo">
+                    <p class="mb-2"><i class="fa fa-map-marker-alt me-3"></i>{{ site.address }}</p>
+                    <p class="mb-2"><i class="fa fa-phone-alt me-3"></i>{{ site.phone }}</p>
+                    <p class="mb-2"><i class="fa fa-envelope me-3"></i>{{ site.email }}</p>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <h4 class="text-light mb-4">Quick Links</h4>
+                    <a class="btn btn-link" href="/#about-section">About Us</a>
+                    <a class="btn btn-link" href="{{ url_for('contact') }}">Contact Us</a>
+                    <a class="btn btn-link" href="/#personal-products">Our Services</a>
+                    <a class="btn btn-link" href="/#pricing">Pricing Plans</a>
+                    <a class="btn btn-link" href="{{ url_for('contact') }}">Support</a>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <h4 class="text-light mb-4">Popular Links</h4>
+                    <a class="btn btn-link" href="/#about-section">About Us</a>
+                    <a class="btn btn-link" href="/#mycash-section">MyCash</a>
+                    <a class="btn btn-link" href="/#business-products">Business Products</a>
+                    <a class="btn btn-link" href="{{ url_for('mysms') }}">My SMS API</a>
+                    <a class="btn btn-link" href="/#personal-products">Personal Products</a>
+                    <a class="btn btn-link" href="{{ url_for('contact') }}">Get In Touch</a>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <h4 class="text-light mb-4">Newsletter</h4>
+                    <form action="{{ url_for('newsletter') }}" method="post">
+                        <div class="input-group">
+                            <input type="email" class="form-control p-3 border-0" name="email" placeholder="Your Email Address" required>
+                            <button class="btn btn-primary" type="submit">Sign Up</button>
+                        </div>
+                    </form>
+                    <h6 class="text-white mt-4 mb-3">Follow Us</h6>
+                    <div class="d-flex pt-2">
+                        <a class="btn btn-square btn-outline-light me-1" href="https://twitter.com/amtelkom" target="_blank" rel="noopener noreferrer" aria-label="AMTEL Twitter"><i class="fab fa-twitter"></i></a>
+                        <a class="btn btn-square btn-outline-light me-1" href="https://www.facebook.com/Amtelkom?locale=en_GB" target="_blank" rel="noopener noreferrer" aria-label="AMTEL Facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a class="btn btn-square btn-outline-light me-1" href="https://www.youtube.com/@amtelkom" target="_blank" rel="noopener noreferrer" aria-label="AMTEL YouTube"><i class="fab fa-youtube"></i></a>
+                        <a class="btn btn-square btn-outline-light me-0" href="https://www.linkedin.com/company/amtelkom/posts/?feedView=all" target="_blank" rel="noopener noreferrer" aria-label="AMTEL LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid copyright text-light py-4 wow fadeIn" data-wow-delay="0.1s">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
+                    &copy; <a href="{{ url_for('home') }}">Amtelkom.com</a>, All Right Reserved.
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    Designed By <a href="https://amtelkom.com">AMTEL Ltd</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top" aria-label="Back to top"><i class="bi bi-arrow-up"></i></a>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/lib/wow/wow.min.js"></script>
+    <script src="/lib/easing/easing.min.js"></script>
+    <script src="/lib/waypoints/waypoints.min.js"></script>
+    <script src="/lib/owlcarousel/owl.carousel.min.js"></script>
+    <script src="/js/main.js?v=responsive-1"></script>
+    <script>
+        (function () {
+            if (window.__amtelAnalyticsInstalled) {
+                return;
+            }
+            window.__amtelAnalyticsInstalled = true;
+            var activeSeconds = 0;
+            var maxScrollPercent = 0;
+            var lastTick = Date.now();
+
+            function postAnalytics(url, payload) {
+                var body = JSON.stringify(payload);
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+                    return;
+                }
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body,
+                    keepalive: true
+                }).catch(function () {});
+            }
+
+            function basePayload() {
+                return {
+                    path: window.location.pathname,
+                    page_title: document.title
+                };
+            }
+
+            function describeClickable(element) {
+                var target = element.closest('button, a, input[type="button"], input[type="submit"], .btn');
+                if (!target || target.closest('[data-analytics-ignore="true"]')) {
+                    return null;
+                }
+                var text = (target.innerText || target.value || target.getAttribute('aria-label') || target.title || '').trim();
+                return {
+                    path: basePayload().path,
+                    page_title: basePayload().page_title,
+                    element_text: text.substring(0, 255),
+                    element_type: target.tagName.toLowerCase(),
+                    element_id: target.id || '',
+                    element_classes: target.className ? String(target.className).substring(0, 255) : '',
+                    target_url: target.href || target.formAction || ''
+                };
+            }
+
+            document.addEventListener('click', function (event) {
+                var payload = describeClickable(event.target);
+                if (!payload) {
+                    return;
+                }
+                postAnalytics('/analytics/click', payload);
+
+                if (/^mailto:/i.test(payload.target_url || '') && /apply/i.test(payload.element_text || payload.target_url || '')) {
+                    postAnalytics('/analytics/conversion', {
+                        path: payload.path,
+                        page_title: payload.page_title,
+                        conversion_type: 'job_apply_click',
+                        target: payload.target_url,
+                        value_label: payload.element_text || 'Apply'
+                    });
+                }
+            }, true);
+
+            window.addEventListener('scroll', function () {
+                var scrollable = document.documentElement.scrollHeight - window.innerHeight;
+                if (scrollable <= 0) {
+                    maxScrollPercent = 100;
+                    return;
+                }
+                var percent = Math.round((window.scrollY / scrollable) * 100);
+                maxScrollPercent = Math.max(maxScrollPercent, Math.min(100, percent));
+            }, { passive: true });
+
+            setInterval(function () {
+                var now = Date.now();
+                if (!document.hidden) {
+                    activeSeconds += Math.min(10, Math.round((now - lastTick) / 1000));
+                }
+                lastTick = now;
+            }, 1000);
+
+            function sendEngagement() {
+                if (activeSeconds <= 0 && maxScrollPercent <= 0) {
+                    return;
+                }
+                postAnalytics('/analytics/engagement', Object.assign(basePayload(), {
+                    active_seconds: activeSeconds,
+                    max_scroll_percent: maxScrollPercent
+                }));
+            }
+
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) {
+                    sendEngagement();
+                }
+            });
+            window.addEventListener('pagehide', sendEngagement);
+        }());
+    </script>
+</body>
+
+</html>

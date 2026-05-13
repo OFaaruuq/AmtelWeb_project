@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Conversions | AMTEL Admin Analytics{% endblock %}
+{% block page_heading %}Conversion Tracking{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Conversion funnel</p>
+        <h1 class="h3 fw-bold mb-0">Conversions</h1>
+    </div>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_conversions', days=days, q=query) }}">Export CSV</a>
+</div>
+
+<section class="panel mb-4">
+    <form class="row g-3 align-items-end" method="get">
+        <div class="col-md-2">
+            <label class="form-label" for="days">Days</label>
+            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
+        </div>
+        <div class="col-md-8">
+            <label class="form-label" for="q">Search conversions</label>
+            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="IP, type, page, target, label">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-dark" type="submit">Filter</button>
+        </div>
+    </form>
+</section>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% else %}
+<div class="row g-4 mb-4">
+    <div class="col-xl-5">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Conversion Summary</h2><span>Visitors and sessions</span></div>
+            <ul class="stat-list">
+                {% for row in summary %}
+                    <li><span>{{ row.label }} <small class="text-muted">{{ row.conversion_type }}</small></span><strong>{{ row.conversions }}</strong></li>
+                {% else %}
+                    <li class="text-muted">No conversions tracked yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+    <div class="col-xl-7">
+        <section class="panel h-100">
+            <div class="panel-heading"><h2>Conversion Chart</h2><span>Top conversion actions</span></div>
+            <canvas id="conversionChart" height="160"></canvas>
+        </section>
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel-heading"><h2>Conversion Event Log</h2><span>Contact, newsletter, job apply</span></div>
+    <div class="table-responsive visitor-table">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Time UTC</th><th>IP Address</th><th>Type</th><th>Page</th><th>Target</th><th>Device</th><th>Browser</th></tr></thead>
+            <tbody>
+            {% for item in conversions %}
+                <tr>
+                    <td class="text-nowrap">{{ item.created_at }}</td>
+                    <td><code>{{ item.ip_address }}</code></td>
+                    <td>{{ item.conversion_type }}</td>
+                    <td><code>{{ item.path }}</code></td>
+                    <td class="small text-break">{{ item.value_label or item.target or "-" }}</td>
+                    <td>{{ item.device_type or "Unknown" }}</td>
+                    <td>{{ item.browser or "Unknown" }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="text-muted">No conversions match this filter.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if summary %}
+<script>
+const conversionLabels = {{ summary|map(attribute='label')|list|tojson }};
+const conversionCounts = {{ summary|map(attribute='conversions')|list|tojson }};
+new Chart(document.getElementById('conversionChart'), {
+    type: 'bar',
+    data: { labels: conversionLabels.slice(0, 12), datasets: [{ label: 'Conversions', data: conversionCounts.slice(0, 12), backgroundColor: '#c8102e' }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+});
+</script>
+{% endif %}
+{% endblock %}
