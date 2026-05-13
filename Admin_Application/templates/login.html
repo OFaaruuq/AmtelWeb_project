@@ -2,25 +2,51 @@
 {% block title %}Login | AMTEL Admin Analytics{% endblock %}
 
 {% block content %}
-<section class="login-shell">
-    <div class="login-card shadow-lg">
-        <div class="mb-4">
-            <p class="text-uppercase text-danger fw-bold small mb-2">AMTEL Admin</p>
-            <h1 class="h3 fw-bold mb-2">Website Analytics</h1>
-            <p class="text-muted mb-0">Sign in to monitor page visits, IP addresses, locations, devices, browsers, and referrals.</p>
+<section class="login-shell vh-100">
+    <div class="container py-5 h-100">
+        <div class="row d-flex justify-content-center align-items-center h-100">
+            <div class="col col-xl-10">
+                <div class="card login-card shadow-lg">
+                    <div class="row g-0">
+                        <div class="col-md-6 col-lg-5 d-none d-md-block">
+                            <img
+                                src="{{ url_for('static', filename='img/hero-img-amtel.png') }}"
+                                alt="Admin analytics login"
+                                class="img-fluid login-card-image">
+                        </div>
+                        <div class="col-md-6 col-lg-7 d-flex align-items-center">
+                            <div class="card-body p-4 p-lg-5 text-black">
+                                <form method="post">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                    <div class="d-flex align-items-center mb-3 pb-1">
+                                        <img src="{{ url_for('static', filename='img/amtelogo.png') }}" alt="AMTEL Ltd Logo" class="login-logo">
+                                    </div>
+
+                                    <h5 class="fw-normal mb-3 pb-3 login-subtitle">Sign into your admin account</h5>
+
+                                    <div class="mb-4">
+                                        <label class="form-label" for="username">Username</label>
+                                        <input class="form-control form-control-lg" id="username" name="username" autocomplete="username" required autofocus>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label class="form-label" for="password">Password</label>
+                                        <input class="form-control form-control-lg" id="password" name="password" type="password" autocomplete="current-password" required>
+                                    </div>
+
+                                    <div class="pt-1 mb-4">
+                                        <button class="btn btn-danger btn-lg w-100" type="submit">Login</button>
+                                    </div>
+
+                                    <p class="text-muted small mb-0">Secure analytics dashboard access for authorized AMTEL admins.</p>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <form method="post" class="vstack gap-3">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div>
-                <label class="form-label" for="username">Username</label>
-                <input class="form-control form-control-lg" id="username" name="username" autocomplete="username" required autofocus>
-            </div>
-            <div>
-                <label class="form-label" for="password">Password</label>
-                <input class="form-control form-control-lg" id="password" name="password" type="password" autocomplete="current-password" required>
-            </div>
-            <button class="btn btn-danger btn-lg w-100" type="submit">Login</button>
-        </form>
     </div>
 </section>
 {% endblock %}

@@ -218,6 +218,18 @@ def _hash_ip(ip_address: str) -> str:
     return hashlib.sha256(f"{salt}:{ip_address}".encode("utf-8")).hexdigest()
 
 
+def _empty_location() -> dict[str, Any]:
+    return {
+        "country": None,
+        "region": None,
+        "city": None,
+        "timezone": None,
+        "isp": None,
+        "latitude": None,
+        "longitude": None,
+    }
+
+
 def _is_public_ip(ip_address: str) -> bool:
     try:
         parsed = ipaddress.ip_address(ip_address)
@@ -283,15 +295,7 @@ def _save_location(ip_address: str, location: dict[str, Any]) -> None:
 
 
 def lookup_ip_location(ip_address: str) -> dict[str, Any]:
-    empty = {
-        "country": None,
-        "region": None,
-        "city": None,
-        "timezone": None,
-        "isp": None,
-        "latitude": None,
-        "longitude": None,
-    }
+    empty = _empty_location()
     if not _env_bool("GEOLOCATION_ENABLED", "true") or not _is_public_ip(ip_address):
         return empty
 
@@ -322,7 +326,11 @@ def lookup_ip_location(ip_address: str) -> dict[str, Any]:
 
 def record_visit(event: dict[str, Any]) -> None:
     ip_address = event.get("ip_address") or "0.0.0.0"
-    location = lookup_ip_location(ip_address)
+    try:
+        location = lookup_ip_location(ip_address)
+    except Exception:
+        # Core visit tracking should not depend on a third-party geo lookup.
+        location = _empty_location()
     path = event.get("path") or "/"
 
     with mysql_connection() as connection:

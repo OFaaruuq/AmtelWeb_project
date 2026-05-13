@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import uuid
 from datetime import datetime, timezone
 from functools import wraps
@@ -78,18 +79,35 @@ MY_SMS_HERO = {
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "change-me-in-production")
 app.config["ANALYTICS_READY"] = False
+app.config["ANALYTICS_LAST_SETUP_ATTEMPT"] = 0.0
+app.config["ANALYTICS_RETRY_SECONDS"] = int(os.getenv("ANALYTICS_RETRY_SECONDS", "30"))
 
 # Compatibility alias for shared setup commands and operational scripts.
 init_database = init_analytics_db
 
 
 def setup_analytics() -> None:
+    app.config["ANALYTICS_LAST_SETUP_ATTEMPT"] = time.monotonic()
     try:
         init_analytics_db()
         app.config["ANALYTICS_READY"] = True
     except Exception as error:  # Analytics should never prevent the public site from loading.
         app.config["ANALYTICS_READY"] = False
         app.logger.warning("Analytics database setup failed: %s", error)
+
+
+def ensure_analytics_ready() -> bool:
+    if app.config.get("ANALYTICS_READY"):
+        return True
+
+    now = time.monotonic()
+    last_attempt = float(app.config.get("ANALYTICS_LAST_SETUP_ATTEMPT") or 0)
+    retry_seconds = int(app.config.get("ANALYTICS_RETRY_SECONDS") or 30)
+    if now - last_attempt < retry_seconds:
+        return False
+
+    setup_analytics()
+    return bool(app.config.get("ANALYTICS_READY"))
 
 
 @app.cli.group("db")
@@ -181,7 +199,7 @@ def device_type(user_agent: str) -> str:
 
 
 def should_track_request(response) -> bool:
-    if not app.config.get("ANALYTICS_READY"):
+    if not ensure_analytics_ready():
         return False
     if request.method != "GET":
         return False
@@ -277,7 +295,7 @@ def analytics_json_response(payload: dict[str, Any], status: int = 200):
 
 
 def track_conversion(conversion_type: str, target: str = "", value_label: str = "") -> None:
-    if not app.config.get("ANALYTICS_READY"):
+    if not ensure_analytics_ready():
         return
     event = {
         **analytics_base_event({"path": request.path, "page_title": request.endpoint or request.path}),
@@ -399,7 +417,7 @@ def newsletter():
 
 @app.post("/analytics/click")
 def analytics_click():
-    if not app.config.get("ANALYTICS_READY"):
+    if not ensure_analytics_ready():
         return {"ok": False}, 503
 
     payload = request.get_json(silent=True) or {}
@@ -423,7 +441,7 @@ def analytics_click():
 
 @app.post("/analytics/engagement")
 def analytics_engagement():
-    if not app.config.get("ANALYTICS_READY"):
+    if not ensure_analytics_ready():
         return {"ok": False}, 503
 
     payload = request.get_json(silent=True) or {}
@@ -442,7 +460,7 @@ def analytics_engagement():
 
 @app.post("/analytics/conversion")
 def analytics_conversion():
-    if not app.config.get("ANALYTICS_READY"):
+    if not ensure_analytics_ready():
         return {"ok": False}, 503
 
     payload = request.get_json(silent=True) or {}
