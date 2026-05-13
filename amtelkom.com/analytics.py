@@ -28,21 +28,28 @@ TARGET_PAGE_LABELS = {
 TARGET_PATHS = set(TARGET_PAGE_LABELS)
 
 
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+    if value is None or value == "":
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
 def _env_bool(name: str, default: str = "true") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _mysql_config(include_database: bool = True) -> dict[str, Any]:
     config: dict[str, Any] = {
-        "host": os.getenv("MYSQL_HOST", "127.0.0.1"),
-        "port": int(os.getenv("MYSQL_PORT", "3306")),
-        "user": os.getenv("MYSQL_USER", "root"),
-        "password": os.getenv("MYSQL_PASSWORD", ""),
-        "connection_timeout": int(os.getenv("MYSQL_CONNECTION_TIMEOUT", "3")),
+        "host": _required_env("MYSQL_HOST"),
+        "port": int(_required_env("MYSQL_PORT")),
+        "user": _required_env("MYSQL_USER"),
+        "password": _required_env("MYSQL_PASSWORD"),
+        "connection_timeout": int(_required_env("MYSQL_CONNECTION_TIMEOUT")),
         "autocommit": False,
     }
     if include_database:
-        config["database"] = os.getenv("MYSQL_DATABASE", "amtelkom_analytics")
+        config["database"] = _required_env("MYSQL_DATABASE")
     return config
 
 
@@ -68,7 +75,7 @@ def mysql_connection(dictionary: bool = False) -> Iterator[mysql.connector.MySQL
 
 
 def init_analytics_db() -> None:
-    database_name = os.getenv("MYSQL_DATABASE", "amtelkom_analytics")
+    database_name = _required_env("MYSQL_DATABASE")
     connection = mysql.connector.connect(**_mysql_config(include_database=False))
     cursor = connection.cursor()
     try:

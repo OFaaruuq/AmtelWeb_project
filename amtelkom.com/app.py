@@ -14,6 +14,13 @@ from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash
 
+BASE_DIR = Path(__file__).resolve().parent
+INSTANCE_DIR = BASE_DIR / "instance"
+STATIC_DIR = BASE_DIR / "static"
+
+load_dotenv(BASE_DIR / ".env")
+load_dotenv()
+
 from analytics import (
     TARGET_PAGE_LABELS,
     analytics_error_message,
@@ -27,12 +34,6 @@ from analytics import (
 )
 from data.jobs import JOBS, get_open_jobs, get_job
 
-
-BASE_DIR = Path(__file__).resolve().parent
-INSTANCE_DIR = BASE_DIR / "instance"
-STATIC_DIR = BASE_DIR / "static"
-
-load_dotenv(BASE_DIR / ".env")
 
 LEGACY_PAGES = {
     "404.html",
