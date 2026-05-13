@@ -11,21 +11,9 @@
     <a class="btn btn-outline-danger" href="{{ url_for('export_visitor_ips', days=days, q=query) }}">Export CSV</a>
 </div>
 
-<section class="panel mb-4">
-    <form class="row g-3 align-items-end" method="get">
-        <div class="col-md-2">
-            <label class="form-label" for="days">Days</label>
-            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
-        </div>
-        <div class="col-md-8">
-            <label class="form-label" for="q">Search visitors</label>
-            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="IP, city, country, browser, device">
-        </div>
-        <div class="col-md-2 d-grid">
-            <button class="btn btn-dark" type="submit">Filter</button>
-        </div>
-    </form>
-</section>
+{% set search_label = "Search visitors" %}
+{% set search_placeholder = "IP, city, country, browser, device" %}
+{% include "include/report_filter_panel.html" %}
 
 {% if error %}
     <div class="alert alert-danger">{{ error }}</div>

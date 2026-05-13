@@ -1,0 +1,26 @@
+<section class="panel mb-4">
+    <form class="row g-3 align-items-end" method="get">
+        <div class="col-md-2">
+            <label class="form-label" for="days">Days</label>
+            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
+        </div>
+        {% if include_path_filter|default(false) %}
+            <div class="col-md-4">
+                <label class="form-label" for="path">Page path</label>
+                <select class="form-select" id="path" name="path">
+                    <option value="">All pages</option>
+                    {% for item in paths %}
+                        <option value="{{ item }}" {% if path == item %}selected{% endif %}>{{ item }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% endif %}
+        <div class="{% if include_path_filter|default(false) %}col-md-4{% else %}col-md-8{% endif %}">
+            <label class="form-label" for="q">{{ search_label }}</label>
+            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="{{ search_placeholder }}">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-dark" type="submit">Filter</button>
+        </div>
+    </form>
+</section>

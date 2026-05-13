@@ -1,0 +1,10 @@
+<footer class="admin-footer">
+    <div>
+        <strong>AMTEL Analytics</strong>
+        <span>Website monitoring dashboard</span>
+    </div>
+    <div class="admin-footer-links">
+        <span>&copy; {{ current_year }} AMTELCOM</span>
+        <a href="{{ url_for('api_overview', days=request.args.get('days', 30)) }}">API overview</a>
+    </div>
+</footer>

@@ -10,30 +10,10 @@
     <a class="btn btn-outline-danger" href="{{ url_for('export_visits', days=days, path=path, q=query) }}">Export CSV</a>
 </div>
 
-<section class="panel mb-4">
-    <form class="row g-3 align-items-end" method="get">
-        <div class="col-md-2">
-            <label class="form-label" for="days">Days</label>
-            <input class="form-control" id="days" name="days" type="number" min="1" max="365" value="{{ days }}">
-        </div>
-        <div class="col-md-4">
-            <label class="form-label" for="path">Page path</label>
-            <select class="form-select" id="path" name="path">
-                <option value="">All pages</option>
-                {% for item in paths %}
-                    <option value="{{ item }}" {% if path == item %}selected{% endif %}>{{ item }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label" for="q">Search</label>
-            <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="IP, city, country, browser, page, referrer">
-        </div>
-        <div class="col-md-2 d-grid">
-            <button class="btn btn-dark" type="submit">Filter</button>
-        </div>
-    </form>
-</section>
+{% set include_path_filter = true %}
+{% set search_label = "Search" %}
+{% set search_placeholder = "IP, city, country, browser, page, referrer" %}
+{% include "include/report_filter_panel.html" %}
 
 {% if error %}
     <div class="alert alert-danger">{{ error }}</div>

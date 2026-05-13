@@ -9,14 +9,7 @@
         <h1 class="h3 fw-bold mb-1">{{ data.title if data else "Analytics" }}</h1>
         <p class="text-muted mb-0">{{ data.subtitle if data else "" }}</p>
     </div>
-    <form class="d-flex gap-2" method="get">
-        <select class="form-select" name="days" aria-label="Analytics window">
-            {% for option in [7, 14, 30, 90, 365] %}
-                <option value="{{ option }}" {% if days == option %}selected{% endif %}>Last {{ option }} days</option>
-            {% endfor %}
-        </select>
-        <button class="btn btn-dark" type="submit">Apply</button>
-    </form>
+    {% include "include/days_select_form.html" %}
 </div>
 
 {% if error %}

@@ -8,14 +8,7 @@
         <p class="text-uppercase text-danger fw-bold small mb-1">Live website monitoring</p>
         <h1 class="h3 fw-bold mb-0">Analytics Dashboard</h1>
     </div>
-    <form class="d-flex gap-2" method="get">
-        <select class="form-select" name="days" aria-label="Analytics window">
-            {% for option in [7, 14, 30, 90, 365] %}
-                <option value="{{ option }}" {% if days == option %}selected{% endif %}>Last {{ option }} days</option>
-            {% endfor %}
-        </select>
-        <button class="btn btn-dark" type="submit">Apply</button>
-    </form>
+    {% include "include/days_select_form.html" %}
 </div>
 
 {% if error %}

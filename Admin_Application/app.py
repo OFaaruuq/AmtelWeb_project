@@ -185,6 +185,7 @@ def inject_context() -> dict[str, Any]:
     return {
         "target_page_labels": TARGET_PAGE_LABELS,
         "admin_name": session.get("admin_username", "Admin"),
+        "current_year": time.localtime().tm_year,
         "csrf_token": csrf_token,
         "nav_sections": [
             ("Overview", [("dashboard", "Overview Dashboard", "dashboard")]),

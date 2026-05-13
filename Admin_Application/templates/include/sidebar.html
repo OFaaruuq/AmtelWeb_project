@@ -1,0 +1,28 @@
+<aside class="admin-sidebar">
+    <a class="brand" href="{{ url_for('dashboard') }}">
+        <span class="brand-mark">A</span>
+        <span>AMTEL Analytics</span>
+    </a>
+    <div class="sidebar-user">
+        <span>Signed in as</span>
+        <strong>{{ admin_name }}</strong>
+    </div>
+    <nav class="sidebar-nav" aria-label="Admin navigation">
+        {% for section, items in nav_sections %}
+            <p>{{ section }}</p>
+            {% for endpoint, label, key in items %}
+                {% if endpoint == "analytics_page" %}
+                    <a class="{% if request.endpoint == endpoint and request.view_args and request.view_args.get('kind') == key %}active{% endif %}" href="{{ url_for(endpoint, kind=key, days=request.args.get('days', 30)) }}">{{ label }}</a>
+                {% elif endpoint == "visits" %}
+                    <a class="{% if request.endpoint == endpoint %}active{% endif %}" href="{{ url_for(endpoint, days=request.args.get('days', 30)) }}">{{ label }}</a>
+                {% else %}
+                    <a class="{% if request.endpoint == endpoint %}active{% endif %}" href="{{ url_for(endpoint, days=request.args.get('days', 30)) }}">{{ label }}</a>
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </nav>
+    <form action="{{ url_for('logout') }}" method="post" class="sidebar-logout">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-light w-100" type="submit">Logout</button>
+    </form>
+</aside>
