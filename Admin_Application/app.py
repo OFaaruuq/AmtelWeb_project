@@ -21,6 +21,7 @@ from analytics_repository import (
     TARGET_PAGE_LABELS,
     admin_session_active,
     analytics_breakdown,
+    bot_analytics_data,
     conversion_summary,
     dashboard_data,
     distinct_paths,
@@ -35,11 +36,15 @@ from analytics_repository import (
     log_request,
     log_suspicious_activity,
     engagement_summary,
+    geo_analytics_data,
     realtime_data,
     refresh_analytics_aggregates,
     report_data,
     revoke_admin_session,
+    session_viewer_data,
     touch_admin_session,
+    traffic_mode,
+    traffic_analytics_data,
     top_clicks,
     upsert_admin_session,
     visitor_ip_summary,
@@ -60,6 +65,12 @@ LOGIN_ATTEMPTS: dict[str, deque[float]] = defaultdict(deque)
 LOGIN_RATE_LIMIT = int(os.getenv("ADMIN_LOGIN_RATE_LIMIT", "5"))
 LOGIN_RATE_WINDOW_SECONDS = int(os.getenv("ADMIN_LOGIN_RATE_WINDOW_SECONDS", "300"))
 SESSION_CHECK_INTERVAL_SECONDS = int(os.getenv("ADMIN_SESSION_CHECK_INTERVAL_SECONDS", "60"))
+PASSWORD_HASH_PLACEHOLDERS = {
+    "generate-with-werkzeug",
+    "replace-with-generated-hash",
+    "replace-with-werkzeug-hash",
+    "your-password-hash",
+}
 
 
 def client_ip_address() -> str:
@@ -134,18 +145,26 @@ def enforce_admin_session() -> bool:
         return True
     except Exception as exc:
         app.logger.warning("Admin session validation failed: %s", exc)
-        return True
+        session.clear()
+        return False
 
 
 def admin_credentials_valid(username: str, password: str) -> bool:
     expected_username = os.getenv("ADMIN_USERNAME", "admin")
-    password_hash = os.getenv("ADMIN_PASSWORD_HASH")
+    password_hash = configured_admin_password_hash()
     plain_password = os.getenv("ADMIN_PASSWORD", "change-this-admin-password")
     if username != expected_username:
         return False
     if password_hash:
         return check_password_hash(password_hash, password)
     return password == plain_password
+
+
+def configured_admin_password_hash() -> str | None:
+    password_hash = (os.getenv("ADMIN_PASSWORD_HASH") or "").strip()
+    if not password_hash or password_hash.lower() in PASSWORD_HASH_PLACEHOLDERS:
+        return None
+    return password_hash
 
 
 def login_required(view):
@@ -166,6 +185,10 @@ def selected_days() -> int:
     except ValueError:
         days = 30
     return max(1, min(days, 365))
+
+
+def selected_traffic_mode(default: str = "human") -> str:
+    return traffic_mode(request.args.get("traffic", default))
 
 
 def json_safe(value: Any) -> Any:
@@ -199,6 +222,9 @@ def inject_context() -> dict[str, Any]:
                     ("analytics_page", "Browser Analytics", "browsers"),
                     ("analytics_page", "Country Analytics", "countries"),
                     ("analytics_page", "Traffic Sources", "sources"),
+                    ("traffic_analytics", "Traffic Analytics", "traffic"),
+                    ("geo_analytics", "Geo Analytics", "geo"),
+                    ("bot_monitoring", "Bot Monitoring", "bot_monitoring"),
                 ],
             ),
             (
@@ -210,6 +236,7 @@ def inject_context() -> dict[str, Any]:
                     ("conversions", "Conversions", "conversions"),
                     ("engagement", "Time Spent", "engagement"),
                     ("visitor_ips", "Visitor IP Addresses", "visitor_ips"),
+                    ("session_viewer", "Session Viewer", "session_viewer"),
                     ("logs", "Logs & Monitoring", "logs"),
                     ("security", "Security", "security"),
                 ],
@@ -326,15 +353,16 @@ def logout():
 @login_required
 def dashboard():
     days = selected_days()
+    traffic = selected_traffic_mode()
     error = None
     data: dict[str, Any] | None = None
     try:
         init_database()
-        data = dashboard_data(days)
+        data = dashboard_data(days, traffic)
     except Exception as exc:
         error = f"Analytics database is not available: {exc}"
 
-    return render_template("dashboard.html", dashboard=data, days=days, error=error)
+    return render_template("dashboard.html", dashboard=data, days=days, traffic=traffic, error=error)
 
 
 @app.get("/analytics/<kind>")
@@ -354,18 +382,65 @@ def analytics_page(kind: str):
     return render_template("analytics_page.html", data=data, days=days, kind=kind, error=error)
 
 
-@app.get("/realtime")
+@app.get("/geo")
 @login_required
-def realtime():
+def geo_analytics():
+    days = selected_days()
     error = None
     data: dict[str, Any] | None = None
     try:
         init_database()
-        data = realtime_data()
+        data = geo_analytics_data(days)
+    except Exception as exc:
+        app.logger.exception("Geo analytics failed")
+        error = f"Geo analytics are not available: {exc}"
+    return render_template("geo_analytics.html", data=data, days=days, error=error)
+
+
+@app.get("/traffic")
+@login_required
+def traffic_analytics():
+    days = selected_days()
+    traffic = selected_traffic_mode()
+    error = None
+    data: dict[str, Any] | None = None
+    try:
+        init_database()
+        data = traffic_analytics_data(days, traffic)
+    except Exception as exc:
+        app.logger.exception("Traffic analytics failed")
+        error = f"Traffic analytics are not available: {exc}"
+    return render_template("traffic.html", data=data, days=days, traffic=traffic, error=error)
+
+
+@app.get("/bot-monitoring")
+@login_required
+def bot_monitoring():
+    days = selected_days()
+    error = None
+    data: dict[str, Any] | None = None
+    try:
+        init_database()
+        data = bot_analytics_data(days)
+    except Exception as exc:
+        app.logger.exception("Bot monitoring failed")
+        error = f"Bot monitoring is not available: {exc}"
+    return render_template("bot_monitoring.html", data=data, days=days, error=error)
+
+
+@app.get("/realtime")
+@login_required
+def realtime():
+    traffic = selected_traffic_mode()
+    error = None
+    data: dict[str, Any] | None = None
+    try:
+        init_database()
+        data = realtime_data(traffic)
     except Exception as exc:
         app.logger.exception("Realtime analytics failed")
         error = f"Analytics database is not available: {exc}"
-    return render_template("realtime.html", realtime=data, error=error)
+    return render_template("realtime.html", realtime=data, traffic=traffic, error=error)
 
 
 @app.get("/logs")
@@ -390,7 +465,7 @@ def logs():
 @app.get("/security")
 @login_required
 def security():
-    password_hash_configured = bool(os.getenv("ADMIN_PASSWORD_HASH"))
+    password_hash_configured = configured_admin_password_hash() is not None
     return render_template(
         "security.html",
         password_hash_configured=password_hash_configured,
@@ -409,12 +484,13 @@ def visits():
     days = selected_days()
     path = request.args.get("path", "").strip()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode()
     error = None
     rows: list[dict[str, Any]] = []
     paths: list[str] = []
     try:
         init_database()
-        rows = fetch_visits(days=days, path=path, query=query, limit=500)
+        rows = fetch_visits(days=days, path=path, query=query, limit=500, mode=traffic)
         paths = distinct_paths()
     except Exception as exc:
         error = f"Analytics database is not available: {exc}"
@@ -426,6 +502,7 @@ def visits():
         days=days,
         path=path,
         query=query,
+        traffic=traffic,
         error=error,
     )
 
@@ -435,16 +512,17 @@ def visits():
 def clicks():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode("human")
     error = None
     rows: list[dict[str, Any]] = []
     summary: list[dict[str, Any]] = []
     try:
         init_database()
-        rows = fetch_clicks(days=days, query=query, limit=500)
-        summary = top_clicks(days=days, limit=25)
+        rows = fetch_clicks(days=days, query=query, limit=500, mode=traffic)
+        summary = top_clicks(days=days, limit=25, mode=traffic)
     except Exception as exc:
         error = f"Click analytics are not available: {exc}"
-    return render_template("clicks.html", clicks=rows, summary=summary, days=days, query=query, error=error)
+    return render_template("clicks.html", clicks=rows, summary=summary, days=days, query=query, traffic=traffic, error=error)
 
 
 @app.get("/visitor-ips")
@@ -452,14 +530,32 @@ def clicks():
 def visitor_ips():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode()
     error = None
     rows: list[dict[str, Any]] = []
     try:
         init_database()
-        rows = visitor_ip_summary(days=days, query=query, limit=2000)
+        rows = visitor_ip_summary(days=days, query=query, limit=2000, mode=traffic)
     except Exception as exc:
         error = f"Visitor IP data is not available: {exc}"
-    return render_template("visitor_ips.html", visitor_ips=rows, days=days, query=query, error=error)
+    return render_template("visitor_ips.html", visitor_ips=rows, days=days, query=query, traffic=traffic, error=error)
+
+
+@app.get("/sessions")
+@login_required
+def session_viewer():
+    days = selected_days()
+    query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode()
+    error = None
+    rows: list[dict[str, Any]] = []
+    try:
+        init_database()
+        rows = session_viewer_data(days=days, query=query, mode=traffic, limit=500)
+    except Exception as exc:
+        app.logger.exception("Session viewer failed")
+        error = f"Session data is not available: {exc}"
+    return render_template("sessions.html", sessions=rows, days=days, query=query, traffic=traffic, error=error)
 
 
 @app.get("/conversions")
@@ -467,16 +563,17 @@ def visitor_ips():
 def conversions():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode("human")
     error = None
     rows: list[dict[str, Any]] = []
     summary: list[dict[str, Any]] = []
     try:
         init_database()
-        rows = fetch_conversions(days=days, query=query, limit=500)
-        summary = conversion_summary(days=days, limit=25)
+        rows = fetch_conversions(days=days, query=query, limit=500, mode=traffic)
+        summary = conversion_summary(days=days, limit=25, mode=traffic)
     except Exception as exc:
         error = f"Conversion analytics are not available: {exc}"
-    return render_template("conversions.html", conversions=rows, summary=summary, days=days, query=query, error=error)
+    return render_template("conversions.html", conversions=rows, summary=summary, days=days, query=query, traffic=traffic, error=error)
 
 
 @app.get("/engagement")
@@ -484,16 +581,17 @@ def conversions():
 def engagement():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode("human")
     error = None
     rows: list[dict[str, Any]] = []
     summary: list[dict[str, Any]] = []
     try:
         init_database()
-        rows = fetch_engagement(days=days, query=query, limit=500)
-        summary = engagement_summary(days=days, limit=25)
+        rows = fetch_engagement(days=days, query=query, limit=500, mode=traffic)
+        summary = engagement_summary(days=days, limit=25, mode=traffic)
     except Exception as exc:
         error = f"Engagement analytics are not available: {exc}"
-    return render_template("engagement.html", engagement=rows, summary=summary, days=days, query=query, error=error)
+    return render_template("engagement.html", engagement=rows, summary=summary, days=days, query=query, traffic=traffic, error=error)
 
 
 @app.get("/export/visits.csv")
@@ -507,7 +605,8 @@ def export_visits():
     days = selected_days()
     path = request.args.get("path", "").strip()
     query = request.args.get("q", "").strip()
-    rows = fetch_visits(days=days, path=path, query=query, limit=1000)
+    traffic = selected_traffic_mode()
+    rows = fetch_visits(days=days, path=path, query=query, limit=1000, mode=traffic)
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
@@ -518,6 +617,10 @@ def export_visits():
             "path",
             "page_title",
             "status_code",
+            "visitor_classification",
+            "bot_name",
+            "risk_score",
+            "classification_reason",
             "city",
             "region",
             "country",
@@ -549,7 +652,8 @@ def export_clicks():
         return redirect(url_for("clicks"))
     days = selected_days()
     query = request.args.get("q", "").strip()
-    rows = fetch_clicks(days=days, query=query, limit=1000)
+    traffic = selected_traffic_mode("human")
+    rows = fetch_clicks(days=days, query=query, limit=1000, mode=traffic)
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
@@ -565,6 +669,10 @@ def export_clicks():
             "element_id",
             "element_classes",
             "target_url",
+            "visitor_classification",
+            "bot_name",
+            "risk_score",
+            "classification_reason",
             "browser",
             "device_type",
             "referrer",
@@ -590,7 +698,8 @@ def export_visitor_ips():
         return redirect(url_for("visitor_ips"))
     days = selected_days()
     query = request.args.get("q", "").strip()
-    rows = visitor_ip_summary(days=days, query=query, limit=5000)
+    traffic = selected_traffic_mode()
+    rows = visitor_ip_summary(days=days, query=query, limit=5000, mode=traffic)
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
@@ -600,6 +709,10 @@ def export_visitor_ips():
             "sessions",
             "first_seen_at",
             "last_seen_at",
+            "visitor_classification",
+            "bot_name",
+            "risk_score",
+            "classification_reason",
             "city",
             "country",
             "browser",
@@ -627,7 +740,8 @@ def export_conversions():
         return redirect(url_for("conversions"))
     days = selected_days()
     query = request.args.get("q", "").strip()
-    rows = fetch_conversions(days=days, query=query, limit=1000)
+    traffic = selected_traffic_mode("human")
+    rows = fetch_conversions(days=days, query=query, limit=1000, mode=traffic)
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
@@ -641,6 +755,10 @@ def export_conversions():
             "page_title",
             "target",
             "value_label",
+            "visitor_classification",
+            "bot_name",
+            "risk_score",
+            "classification_reason",
             "browser",
             "device_type",
             "referrer",
@@ -666,7 +784,8 @@ def export_engagement():
         return redirect(url_for("engagement"))
     days = selected_days()
     query = request.args.get("q", "").strip()
-    rows = fetch_engagement(days=days, query=query, limit=1000)
+    traffic = selected_traffic_mode("human")
+    rows = fetch_engagement(days=days, query=query, limit=1000, mode=traffic)
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
@@ -679,6 +798,10 @@ def export_engagement():
             "page_title",
             "active_seconds",
             "max_scroll_percent",
+            "visitor_classification",
+            "bot_name",
+            "risk_score",
+            "classification_reason",
             "browser",
             "device_type",
         ],
@@ -697,15 +820,17 @@ def export_engagement():
 @login_required
 def api_overview():
     days = selected_days()
+    traffic = selected_traffic_mode()
     init_database()
-    return jsonify(json_safe(dashboard_data(days)))
+    return jsonify(json_safe(dashboard_data(days, traffic)))
 
 
 @app.get("/api/realtime")
 @login_required
 def api_realtime():
+    traffic = selected_traffic_mode()
     init_database()
-    return jsonify(json_safe(realtime_data()))
+    return jsonify(json_safe(realtime_data(traffic)))
 
 
 @app.get("/api/analytics/<kind>")
@@ -723,8 +848,44 @@ def api_analytics(kind: str):
 @login_required
 def api_reports():
     days = selected_days()
+    traffic = selected_traffic_mode()
     init_database()
-    return jsonify(json_safe(report_data(days)))
+    return jsonify(json_safe(report_data(days, traffic)))
+
+
+@app.get("/api/geo")
+@login_required
+def api_geo():
+    days = selected_days()
+    init_database()
+    return jsonify(json_safe(geo_analytics_data(days)))
+
+
+@app.get("/api/traffic")
+@login_required
+def api_traffic():
+    days = selected_days()
+    traffic = selected_traffic_mode()
+    init_database()
+    return jsonify(json_safe(traffic_analytics_data(days, traffic)))
+
+
+@app.get("/api/bots")
+@login_required
+def api_bots():
+    days = selected_days()
+    init_database()
+    return jsonify(json_safe(bot_analytics_data(days)))
+
+
+@app.get("/api/sessions")
+@login_required
+def api_sessions():
+    days = selected_days()
+    query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode()
+    init_database()
+    return jsonify(json_safe(session_viewer_data(days=days, query=query, mode=traffic)))
 
 
 @app.get("/api/clicks")
@@ -732,8 +893,9 @@ def api_reports():
 def api_clicks():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode("human")
     init_database()
-    return jsonify(json_safe({"summary": top_clicks(days), "clicks": fetch_clicks(days, query=query)}))
+    return jsonify(json_safe({"summary": top_clicks(days, mode=traffic), "clicks": fetch_clicks(days, query=query, mode=traffic)}))
 
 
 @app.get("/api/conversions")
@@ -741,8 +903,9 @@ def api_clicks():
 def api_conversions():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode("human")
     init_database()
-    return jsonify(json_safe({"summary": conversion_summary(days), "conversions": fetch_conversions(days, query=query)}))
+    return jsonify(json_safe({"summary": conversion_summary(days, mode=traffic), "conversions": fetch_conversions(days, query=query, mode=traffic)}))
 
 
 @app.get("/api/engagement")
@@ -750,8 +913,9 @@ def api_conversions():
 def api_engagement():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode("human")
     init_database()
-    return jsonify(json_safe({"summary": engagement_summary(days), "engagement": fetch_engagement(days, query=query)}))
+    return jsonify(json_safe({"summary": engagement_summary(days, mode=traffic), "engagement": fetch_engagement(days, query=query, mode=traffic)}))
 
 
 @app.get("/api/visitor-ips")
@@ -759,8 +923,9 @@ def api_engagement():
 def api_visitor_ips():
     days = selected_days()
     query = request.args.get("q", "").strip()
+    traffic = selected_traffic_mode()
     init_database()
-    return jsonify(json_safe(visitor_ip_summary(days, query=query)))
+    return jsonify(json_safe(visitor_ip_summary(days, query=query, mode=traffic)))
 
 
 @app.errorhandler(Exception)

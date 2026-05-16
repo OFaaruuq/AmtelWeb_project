@@ -1,111 +1,119 @@
 {% extends "base.html" %}
-{% block title %}Dashboard | AMTEL Admin Analytics{% endblock %}
+{% block title %}Dashboard | AMTEL Admin{% endblock %}
 {% block page_heading %}Overview Dashboard{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-    <div>
-        <p class="text-uppercase text-danger fw-bold small mb-1">Live website monitoring</p>
-        <h1 class="h3 fw-bold mb-0">Analytics Dashboard</h1>
-    </div>
-    {% include "include/days_select_form.html" %}
-</div>
-
 {% if error %}
     <div class="alert alert-danger">{{ error }}</div>
 {% elif dashboard %}
-    <div class="row g-3 mb-4">
+    <section class="dashboard-hero mb-4">
+        <div class="hero-copy">
+            <span class="eyebrow">Live website monitoring</span>
+            <h1>AMTEL Admin Dashboard</h1>
+            <p>Manage the admin application with human-first traffic intelligence, bot noise separation, session behavior, and geo insights in one clean command center.</p>
+            <div class="hero-badges">
+                <span><i class="bi bi-shield-check"></i>Bots hidden by default</span>
+                <span><i class="bi bi-clock-history"></i>{{ days }} day window</span>
+                <span><i class="bi bi-broadcast"></i>{{ dashboard.live.active_visitors }} live visitors</span>
+            </div>
+        </div>
+        <div class="hero-panel">
+            {% set show_traffic_filter = true %}
+            {% include "include/days_select_form.html" %}
+            <div class="hero-score">
+                <span>Bot Noise</span>
+                <strong>{{ dashboard.overview.bot_percentage }}%</strong>
+                <small>{{ dashboard.overview.bot_visits }} bot requests filtered from business metrics</small>
+            </div>
+        </div>
+    </section>
+
+    <div class="row g-3 mb-4 metric-grid">
         <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Total Visitors</span>
+            <div class="metric-card metric-primary">
+                <div class="metric-icon"><i class="bi bi-people"></i></div>
+                <span>Human Visitors</span>
                 <strong>{{ dashboard.overview.total_visits }}</strong>
+                <small>Human-only visits in selected range</small>
             </div>
         </div>
         <div class="col-sm-6 col-xxl-3">
             <div class="metric-card">
-                <span>Active Users</span>
-                <strong>{{ dashboard.overview.active_users }}</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Daily Visitors</span>
-                <strong>{{ dashboard.overview.daily_visitors }}</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Monthly Visitors</span>
-                <strong>{{ dashboard.overview.monthly_visitors }}</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Unique Visitors</span>
+                <div class="metric-icon"><i class="bi bi-person-check"></i></div>
+                <span>Unique Human Users</span>
                 <strong>{{ dashboard.overview.unique_visitors }}</strong>
+                <small>Distinct real visitors</small>
             </div>
         </div>
         <div class="col-sm-6 col-xxl-3">
             <div class="metric-card">
+                <div class="metric-icon"><i class="bi bi-diagram-3"></i></div>
+                <span>Human Sessions</span>
+                <strong>{{ dashboard.overview.total_sessions }}</strong>
+                <small>30-minute inactivity grouping</small>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <div class="metric-icon"><i class="bi bi-activity"></i></div>
+                <span>Active Sessions</span>
+                <strong>{{ dashboard.overview.active_sessions }}</strong>
+                <small>Live sessions in the last 15 minutes</small>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <div class="metric-icon"><i class="bi bi-stopwatch"></i></div>
+                <span>Avg. Session Duration</span>
+                <strong>{{ dashboard.overview.average_session_duration_seconds }}s</strong>
+                <small>Behavior quality indicator</small>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xxl-3">
+            <div class="metric-card">
+                <div class="metric-icon"><i class="bi bi-arrow-repeat"></i></div>
                 <span>Returning Visitors</span>
                 <strong>{{ dashboard.overview.returning_visitors }}</strong>
+                <small>Repeated users in this period</small>
             </div>
         </div>
         <div class="col-sm-6 col-xxl-3">
             <div class="metric-card">
+                <div class="metric-icon"><i class="bi bi-door-open"></i></div>
                 <span>Bounce Rate</span>
                 <strong>{{ dashboard.overview.bounce_rate }}%</strong>
+                <small>Single-page session share</small>
             </div>
         </div>
         <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Job Conversion Proxy</span>
-                <strong>{{ dashboard.overview.conversion_rate }}%</strong>
+            <div class="metric-card metric-danger">
+                <div class="metric-icon"><i class="bi bi-robot"></i></div>
+                <span>Bot Requests</span>
+                <strong>{{ dashboard.overview.bot_visits }}</strong>
+                <small>{{ dashboard.overview.suspicious_visits }} suspicious requests detected</small>
             </div>
         </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Avg. Time Spent</span>
-                <strong>{{ dashboard.overview.average_time_spent_seconds }}s</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Total Button Clicks</span>
-                <strong>{{ dashboard.overview.total_clicks }}</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Visitors Who Clicked</span>
-                <strong>{{ dashboard.overview.unique_clickers }}</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Total Conversions</span>
-                <strong>{{ dashboard.overview.total_conversions }}</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Avg. Active Time</span>
-                <strong>{{ dashboard.overview.average_active_seconds }}s</strong>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xxl-3">
-            <div class="metric-card">
-                <span>Avg. Scroll Depth</span>
-                <strong>{{ dashboard.overview.average_scroll_percent }}%</strong>
-            </div>
-        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="insight-chip"><span>Today</span><strong>{{ dashboard.overview.daily_visitors }}</strong><small>human visits</small></div></div>
+        <div class="col-md-3"><div class="insight-chip"><span>This month</span><strong>{{ dashboard.overview.monthly_visitors }}</strong><small>human visits</small></div></div>
+        <div class="col-md-3"><div class="insight-chip"><span>Clicks</span><strong>{{ dashboard.overview.total_clicks }}</strong><small>{{ dashboard.overview.unique_clickers }} users clicked</small></div></div>
+        <div class="col-md-3"><div class="insight-chip"><span>Conversions</span><strong>{{ dashboard.overview.total_conversions }}</strong><small>{{ dashboard.overview.conversion_rate }}% job proxy</small></div></div>
+    </div>
+
+    <div class="quick-actions mb-4">
+        <a href="{{ url_for('traffic_analytics', days=days, traffic=traffic) }}"><i class="bi bi-graph-up-arrow"></i><span>Traffic Trends</span></a>
+        <a href="{{ url_for('geo_analytics', days=days) }}"><i class="bi bi-globe2"></i><span>Geo Analytics</span></a>
+        <a href="{{ url_for('bot_monitoring', days=days) }}"><i class="bi bi-robot"></i><span>Bot Monitoring</span></a>
+        <a href="{{ url_for('session_viewer', days=days, traffic=traffic) }}"><i class="bi bi-signpost-split"></i><span>Session Viewer</span></a>
     </div>
 
     <div class="row g-4">
         <div class="col-xl-8">
             <section class="panel">
                 <div class="panel-heading">
-                    <h2>Traffic Trends</h2>
+                    <h2>Human Traffic Trends</h2>
                     <span>{{ days }} day trend</span>
                 </div>
                 <canvas id="trafficTrend" height="120"></canvas>
@@ -155,7 +163,7 @@
         <div class="col-xl-6">
             <section class="panel">
                 <div class="panel-heading">
-                    <h2>Geographic Traffic Map</h2>
+                    <h2>Human Geo Distribution</h2>
                     <span>Country distribution</span>
                 </div>
                 <canvas id="countryChart" height="150"></canvas>
@@ -190,7 +198,7 @@
         </div>
         <div class="col-xl-4">
             <section class="panel h-100">
-                <div class="panel-heading"><h2>Recent Visits</h2><span>Latest activity</span></div>
+                <div class="panel-heading"><h2>Recent Human Visits</h2><span>Latest activity</span></div>
                 <ul class="visit-list">
                     {% for row in dashboard.recent_visits %}
                         <li>
@@ -329,23 +337,37 @@ const dailyVisits = {{ dashboard.daily|map(attribute='visits')|list|tojson }};
 const dailyVisitors = {{ dashboard.daily|map(attribute='visitors')|list|tojson }};
 const countryLabels = {{ dashboard.countries|map(attribute='label')|list|tojson }};
 const countryVisits = {{ dashboard.countries|map(attribute='visits')|list|tojson }};
+const trendCanvas = document.getElementById('trafficTrend');
+const trendGradient = trendCanvas.getContext('2d').createLinearGradient(0, 0, 0, 260);
+trendGradient.addColorStop(0, 'rgba(7, 27, 58, .2)');
+trendGradient.addColorStop(1, 'rgba(7, 27, 58, 0)');
 
-new Chart(document.getElementById('trafficTrend'), {
+new Chart(trendCanvas, {
     type: 'line',
     data: {
         labels: dailyLabels,
         datasets: [
-            { label: 'Visits', data: dailyVisits, borderColor: '#c8102e', backgroundColor: 'rgba(200, 16, 46, .12)', fill: true, tension: .35 },
-            { label: 'Unique visitors', data: dailyVisitors, borderColor: '#111827', backgroundColor: 'rgba(17, 24, 39, .08)', tension: .35 }
+            { label: 'Visits', data: dailyVisits, borderColor: '#071b3a', backgroundColor: trendGradient, fill: true, tension: .4 },
+            { label: 'Unique visitors', data: dailyVisitors, borderColor: '#00a859', backgroundColor: 'rgba(0, 168, 89, .08)', tension: .4 }
         ]
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    options: {
+        responsive: true,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
+        scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, .18)' } } }
+    }
 });
 
 new Chart(document.getElementById('countryChart'), {
     type: 'bar',
-    data: { labels: countryLabels.slice(0, 10), datasets: [{ label: 'Visits', data: countryVisits.slice(0, 10), backgroundColor: '#c8102e' }] },
-    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+    data: { labels: countryLabels.slice(0, 10), datasets: [{ label: 'Visits', data: countryVisits.slice(0, 10), backgroundColor: '#12345f', borderRadius: 10 }] },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, .18)' } }, y: { grid: { display: false } } }
+    }
 });
 </script>
 {% endif %}

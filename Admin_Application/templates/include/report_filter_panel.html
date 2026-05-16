@@ -15,7 +15,18 @@
                 </select>
             </div>
         {% endif %}
-        <div class="{% if include_path_filter|default(false) %}col-md-4{% else %}col-md-8{% endif %}">
+        {% if include_traffic_filter|default(false) %}
+            <div class="col-md-2">
+                <label class="form-label" for="traffic">Traffic</label>
+                <select class="form-select" id="traffic" name="traffic">
+                    <option value="human" {% if traffic == "human" %}selected{% endif %}>Humans</option>
+                    <option value="all" {% if traffic == "all" %}selected{% endif %}>All</option>
+                    <option value="bot" {% if traffic == "bot" %}selected{% endif %}>Bots</option>
+                    <option value="suspicious" {% if traffic == "suspicious" %}selected{% endif %}>Suspicious</option>
+                </select>
+            </div>
+        {% endif %}
+        <div class="{% if include_path_filter|default(false) %}col-md-4{% elif include_traffic_filter|default(false) %}col-md-6{% else %}col-md-8{% endif %}">
             <label class="form-label" for="q">{{ search_label }}</label>
             <input class="form-control" id="q" name="q" value="{{ query }}" placeholder="{{ search_placeholder }}">
         </div>

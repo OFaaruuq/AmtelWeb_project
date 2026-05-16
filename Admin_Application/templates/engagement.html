@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Time Spent | AMTEL Admin Analytics{% endblock %}
+{% block title %}Time Spent | AMTEL Admin{% endblock %}
 {% block page_heading %}Time Spent & Engagement{% endblock %}
 
 {% block content %}
@@ -8,9 +8,10 @@
         <p class="text-uppercase text-danger fw-bold small mb-1">Engagement depth</p>
         <h1 class="h3 fw-bold mb-0">Time Spent</h1>
     </div>
-    <a class="btn btn-outline-danger" href="{{ url_for('export_engagement', days=days, q=query) }}">Export CSV</a>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_engagement', days=days, q=query, traffic=traffic) }}">Export CSV</a>
 </div>
 
+{% set include_traffic_filter = true %}
 {% set search_label = "Search engagement" %}
 {% set search_placeholder = "IP, page, title, browser" %}
 {% include "include/report_filter_panel.html" %}
@@ -22,13 +23,11 @@
     <div class="col-xl-5">
         <section class="panel h-100">
             <div class="panel-heading"><h2>Top Engaged Pages</h2><span>Average active seconds</span></div>
-            <ul class="stat-list">
-                {% for row in summary %}
-                    <li><span class="text-truncate">{{ row.path }}</span><strong>{{ row.average_active_seconds|round|int }}s</strong></li>
-                {% else %}
-                    <li class="text-muted">No engagement samples yet.</li>
-                {% endfor %}
-            </ul>
+            <div class="stat-list" role="list">{%- for row in summary %}
+                <div role="listitem"><span class="text-truncate">{{ row.path }}</span><strong>{{ row.average_active_seconds|round|int }}s</strong></div>
+            {%- else %}
+                <div class="text-muted" role="listitem">No engagement samples yet.</div>
+            {%- endfor %}</div>
         </section>
     </div>
     <div class="col-xl-7">
@@ -72,7 +71,7 @@ const engagementLabels = {{ summary|map(attribute='path')|list|tojson }};
 const engagementSeconds = {{ summary|map(attribute='average_active_seconds')|list|tojson }};
 new Chart(document.getElementById('engagementChart'), {
     type: 'bar',
-    data: { labels: engagementLabels.slice(0, 12), datasets: [{ label: 'Avg. seconds', data: engagementSeconds.slice(0, 12), backgroundColor: '#111827' }] },
+    data: { labels: engagementLabels.slice(0, 12), datasets: [{ label: 'Avg. seconds', data: engagementSeconds.slice(0, 12), backgroundColor: '#12345f', borderRadius: 10 }] },
     options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
 });
 </script>

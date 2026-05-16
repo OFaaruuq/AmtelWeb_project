@@ -25,6 +25,46 @@ CAREERS_PATHS = ("/careers", "/career.html")
 JOB_PATHS = ("/job-oss-bss-engineer.html", "/jobs/oss-bss-engineer")
 SESSION_IDLE_MINUTES = 30
 
+LEGACY_CLASSIFICATION_SQL = """
+    CASE
+        WHEN LOWER(COALESCE(visitor_classification, '')) = 'bot'
+            OR COALESCE(is_bot, 0) = 1
+            OR LOWER(COALESCE(user_agent, '')) REGEXP 'bot|crawl|crawler|spider|slurp|semrush|amazonbot|bingpreview|headless'
+            OR LOWER(COALESCE(browser, '')) = 'bot'
+            OR LOWER(COALESCE(device_type, '')) = 'bot'
+        THEN 'bot'
+        WHEN LOWER(COALESCE(visitor_classification, '')) = 'suspicious'
+            OR LOWER(COALESCE(isp, '')) REGEXP 'amazon|aws|microsoft|azure|google cloud|digitalocean|linode|akamai|ovh|hetzner|contabo|vultr|cloudflare|leaseweb|oracle|alibaba|tencent'
+            OR COALESCE(risk_score, 0) >= 70
+        THEN 'suspicious'
+        ELSE 'human'
+    END
+"""
+
+
+def traffic_mode(value: str | None) -> str:
+    value = (value or "human").strip().lower()
+    return value if value in {"human", "bot", "suspicious", "all"} else "human"
+
+
+def traffic_condition(mode: str | None = "human", alias: str = "") -> str:
+    selected = traffic_mode(mode)
+    if selected == "all":
+        return "1 = 1"
+    prefix = f"{alias}." if alias else ""
+    expression = LEGACY_CLASSIFICATION_SQL.replace("visitor_classification", f"{prefix}visitor_classification")
+    expression = expression.replace("user_agent", f"{prefix}user_agent")
+    expression = expression.replace("browser", f"{prefix}browser")
+    expression = expression.replace("device_type", f"{prefix}device_type")
+    expression = expression.replace("isp", f"{prefix}isp")
+    expression = expression.replace("is_bot", f"{prefix}is_bot")
+    expression = expression.replace("risk_score", f"{prefix}risk_score")
+    if selected == "human":
+        return f"({expression}) = 'human'"
+    if selected == "bot":
+        return f"({expression}) = 'bot'"
+    return f"({expression}) = 'suspicious'"
+
 
 def mysql_config(include_database: bool = True) -> dict[str, Any]:
     config: dict[str, Any] = {
@@ -104,6 +144,11 @@ def init_database() -> None:
                 user_agent TEXT,
                 browser VARCHAR(80),
                 device_type VARCHAR(40),
+                visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+                is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+                bot_name VARCHAR(120),
+                risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                classification_reason VARCHAR(255),
                 country VARCHAR(120),
                 region VARCHAR(120),
                 city VARCHAR(120),
@@ -115,13 +160,76 @@ def init_database() -> None:
                 INDEX idx_created_at (created_at),
                 INDEX idx_path_created_at (path, created_at),
                 INDEX idx_ip_created_at (ip_hash, created_at),
-                INDEX idx_target_created_at (is_target_page, created_at)
+                INDEX idx_target_created_at (is_target_page, created_at),
+                INDEX idx_class_created_at (visitor_classification, created_at),
+                INDEX idx_bot_created_at (is_bot, created_at)
             ) ENGINE=InnoDB
             """
         )
         execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD COLUMN session_id CHAR(36) NULL")
         execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD COLUMN time_spent_seconds INT UNSIGNED NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD COLUMN visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human'")
+        execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD COLUMN is_bot BOOLEAN NOT NULL DEFAULT FALSE")
+        execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD COLUMN bot_name VARCHAR(120) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD COLUMN risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD COLUMN classification_reason VARCHAR(255) NULL")
         execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD INDEX idx_session_created_at (session_id, created_at)")
+        execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD INDEX idx_class_created_at (visitor_classification, created_at)")
+        execute_optional_schema_change(cursor, "ALTER TABLE visitor_events ADD INDEX idx_bot_created_at (is_bot, created_at)")
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS visitor_sessions (
+                session_id CHAR(36) NOT NULL PRIMARY KEY,
+                ip_address VARCHAR(45) NOT NULL,
+                ip_hash CHAR(64) NOT NULL,
+                started_at DATETIME(6) NOT NULL,
+                ended_at DATETIME(6) NOT NULL,
+                duration_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+                page_views INT UNSIGNED NOT NULL DEFAULT 0,
+                unique_pages INT UNSIGNED NOT NULL DEFAULT 0,
+                visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+                is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+                bot_name VARCHAR(120),
+                risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                classification_reason VARCHAR(255),
+                user_agent TEXT,
+                browser VARCHAR(80),
+                device_type VARCHAR(40),
+                country VARCHAR(120),
+                region VARCHAR(120),
+                city VARCHAR(120),
+                timezone VARCHAR(120),
+                isp VARCHAR(255),
+                INDEX idx_sessions_started (started_at),
+                INDEX idx_sessions_ended (ended_at),
+                INDEX idx_sessions_ip_started (ip_hash, started_at),
+                INDEX idx_sessions_class_started (visitor_classification, started_at),
+                INDEX idx_sessions_bot_started (is_bot, started_at)
+            ) ENGINE=InnoDB
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bot_activity_logs (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                created_at DATETIME(6) NOT NULL,
+                session_id CHAR(36),
+                ip_address VARCHAR(45) NOT NULL,
+                ip_hash CHAR(64) NOT NULL,
+                path VARCHAR(255) NOT NULL,
+                bot_name VARCHAR(120),
+                visitor_classification VARCHAR(20) NOT NULL,
+                risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                classification_reason VARCHAR(255),
+                user_agent TEXT,
+                isp VARCHAR(255),
+                details JSON NULL,
+                INDEX idx_bot_logs_created (created_at),
+                INDEX idx_bot_logs_ip_created (ip_hash, created_at),
+                INDEX idx_bot_logs_class_created (visitor_classification, created_at)
+            ) ENGINE=InnoDB
+            """
+        )
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS admin_activity_logs (
@@ -157,14 +265,28 @@ def init_database() -> None:
                 user_agent TEXT,
                 browser VARCHAR(80),
                 device_type VARCHAR(40),
+                visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+                is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+                bot_name VARCHAR(120),
+                risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                classification_reason VARCHAR(255),
+                isp VARCHAR(255),
                 INDEX idx_click_created_at (created_at),
                 INDEX idx_click_path_created_at (path, created_at),
                 INDEX idx_click_ip_created_at (ip_hash, created_at),
                 INDEX idx_click_session_created_at (session_id, created_at),
-                INDEX idx_click_element_text (element_text, created_at)
+                INDEX idx_click_element_text (element_text, created_at),
+                INDEX idx_click_class_created (visitor_classification, created_at)
             ) ENGINE=InnoDB
             """
         )
+        execute_optional_schema_change(cursor, "ALTER TABLE click_events ADD COLUMN visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human'")
+        execute_optional_schema_change(cursor, "ALTER TABLE click_events ADD COLUMN is_bot BOOLEAN NOT NULL DEFAULT FALSE")
+        execute_optional_schema_change(cursor, "ALTER TABLE click_events ADD COLUMN bot_name VARCHAR(120) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE click_events ADD COLUMN risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE click_events ADD COLUMN classification_reason VARCHAR(255) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE click_events ADD COLUMN isp VARCHAR(255) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE click_events ADD INDEX idx_click_class_created (visitor_classification, created_at)")
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS page_engagement_events (
@@ -181,13 +303,27 @@ def init_database() -> None:
                 user_agent TEXT,
                 browser VARCHAR(80),
                 device_type VARCHAR(40),
+                visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+                is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+                bot_name VARCHAR(120),
+                risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                classification_reason VARCHAR(255),
+                isp VARCHAR(255),
                 INDEX idx_engagement_created_at (created_at),
                 INDEX idx_engagement_path_created_at (path, created_at),
                 INDEX idx_engagement_ip_created_at (ip_hash, created_at),
-                INDEX idx_engagement_session_created_at (session_id, created_at)
+                INDEX idx_engagement_session_created_at (session_id, created_at),
+                INDEX idx_engagement_class_created (visitor_classification, created_at)
             ) ENGINE=InnoDB
             """
         )
+        execute_optional_schema_change(cursor, "ALTER TABLE page_engagement_events ADD COLUMN visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human'")
+        execute_optional_schema_change(cursor, "ALTER TABLE page_engagement_events ADD COLUMN is_bot BOOLEAN NOT NULL DEFAULT FALSE")
+        execute_optional_schema_change(cursor, "ALTER TABLE page_engagement_events ADD COLUMN bot_name VARCHAR(120) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE page_engagement_events ADD COLUMN risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE page_engagement_events ADD COLUMN classification_reason VARCHAR(255) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE page_engagement_events ADD COLUMN isp VARCHAR(255) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE page_engagement_events ADD INDEX idx_engagement_class_created (visitor_classification, created_at)")
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS conversion_events (
@@ -206,13 +342,27 @@ def init_database() -> None:
                 user_agent TEXT,
                 browser VARCHAR(80),
                 device_type VARCHAR(40),
+                visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+                is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+                bot_name VARCHAR(120),
+                risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                classification_reason VARCHAR(255),
+                isp VARCHAR(255),
                 INDEX idx_conversion_created_at (created_at),
                 INDEX idx_conversion_type_created_at (conversion_type, created_at),
                 INDEX idx_conversion_ip_created_at (ip_hash, created_at),
-                INDEX idx_conversion_session_created_at (session_id, created_at)
+                INDEX idx_conversion_session_created_at (session_id, created_at),
+                INDEX idx_conversion_class_created (visitor_classification, created_at)
             ) ENGINE=InnoDB
             """
         )
+        execute_optional_schema_change(cursor, "ALTER TABLE conversion_events ADD COLUMN visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human'")
+        execute_optional_schema_change(cursor, "ALTER TABLE conversion_events ADD COLUMN is_bot BOOLEAN NOT NULL DEFAULT FALSE")
+        execute_optional_schema_change(cursor, "ALTER TABLE conversion_events ADD COLUMN bot_name VARCHAR(120) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE conversion_events ADD COLUMN risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE conversion_events ADD COLUMN classification_reason VARCHAR(255) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE conversion_events ADD COLUMN isp VARCHAR(255) NULL")
+        execute_optional_schema_change(cursor, "ALTER TABLE conversion_events ADD INDEX idx_conversion_class_created (visitor_classification, created_at)")
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS admin_sessions (
@@ -285,6 +435,12 @@ def init_database() -> None:
                 unique_visitors INT UNSIGNED NOT NULL DEFAULT 0,
                 page_views INT UNSIGNED NOT NULL DEFAULT 0,
                 conversions INT UNSIGNED NOT NULL DEFAULT 0,
+                human_visits INT UNSIGNED NOT NULL DEFAULT 0,
+                bot_visits INT UNSIGNED NOT NULL DEFAULT 0,
+                suspicious_visits INT UNSIGNED NOT NULL DEFAULT 0,
+                sessions INT UNSIGNED NOT NULL DEFAULT 0,
+                average_session_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+                geo_stats JSON NULL,
                 bounce_rate DECIMAL(5,2) NOT NULL DEFAULT 0,
                 created_at DATETIME(6) NOT NULL,
                 updated_at DATETIME(6) NOT NULL,
@@ -292,6 +448,12 @@ def init_database() -> None:
             ) ENGINE=InnoDB
             """
         )
+        execute_optional_schema_change(cursor, "ALTER TABLE analytics_aggregates ADD COLUMN human_visits INT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE analytics_aggregates ADD COLUMN bot_visits INT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE analytics_aggregates ADD COLUMN suspicious_visits INT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE analytics_aggregates ADD COLUMN sessions INT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE analytics_aggregates ADD COLUMN average_session_seconds INT UNSIGNED NOT NULL DEFAULT 0")
+        execute_optional_schema_change(cursor, "ALTER TABLE analytics_aggregates ADD COLUMN geo_stats JSON NULL")
         connection.commit()
     except Exception:
         connection.rollback()
@@ -309,8 +471,8 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def build_visit_filters(days: int, path: str = "", query: str = "") -> tuple[str, list[Any]]:
-    clauses = ["created_at >= %s"]
+def build_visit_filters(days: int, path: str = "", query: str = "", mode: str = "human") -> tuple[str, list[Any]]:
+    clauses = ["created_at >= %s", traffic_condition(mode)]
     values: list[Any] = [utc_since(days)]
     if path:
         clauses.append("path = %s")
@@ -320,10 +482,11 @@ def build_visit_filters(days: int, path: str = "", query: str = "") -> tuple[str
         clauses.append(
             "("
             "ip_address LIKE %s OR path LIKE %s OR page_title LIKE %s OR "
-            "city LIKE %s OR country LIKE %s OR browser LIKE %s OR referrer LIKE %s"
+            "city LIKE %s OR country LIKE %s OR browser LIKE %s OR referrer LIKE %s OR "
+            "visitor_classification LIKE %s OR bot_name LIKE %s OR classification_reason LIKE %s"
             ")"
         )
-        values.extend([like, like, like, like, like, like, like])
+        values.extend([like, like, like, like, like, like, like, like, like, like])
     return " AND ".join(clauses), values
 
 
@@ -363,8 +526,10 @@ def _direct_or_domain_expression() -> str:
     """
 
 
-def dashboard_data(days: int = 30) -> dict[str, Any]:
+def dashboard_data(days: int = 30, mode: str = "human") -> dict[str, Any]:
     days = max(1, min(days, 365))
+    mode = traffic_mode(mode)
+    visit_filter = traffic_condition(mode)
     since = utc_since(days)
     today = utc_now().date()
     month_start = today.replace(day=1)
@@ -374,7 +539,7 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
         try:
             overview = _fetch_one(
                 cursor,
-                """
+                f"""
                 SELECT
                     COUNT(*) AS total_visits,
                     COUNT(DISTINCT ip_hash) AS unique_visitors,
@@ -384,32 +549,67 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                     COUNT(DISTINCT CASE WHEN path IN (%s, %s) THEN ip_hash END) AS careers_visitors,
                     COUNT(CASE WHEN path IN (%s, %s) THEN 1 END) AS job_application_views
                 FROM visitor_events
-                WHERE created_at >= %s
+                WHERE created_at >= %s AND {visit_filter}
                 """,
                 (*CAREERS_PATHS, *JOB_PATHS, since),
             )
             daily_visitors = _scalar(
                 cursor,
-                "SELECT COUNT(*) FROM visitor_events WHERE DATE(created_at) = %s",
+                f"SELECT COUNT(*) FROM visitor_events WHERE DATE(created_at) = %s AND {visit_filter}",
                 (today,),
             )
             monthly_visitors = _scalar(
                 cursor,
-                "SELECT COUNT(*) FROM visitor_events WHERE DATE(created_at) >= %s",
+                f"SELECT COUNT(*) FROM visitor_events WHERE DATE(created_at) >= %s AND {visit_filter}",
                 (month_start,),
             )
             active_users = _scalar(
                 cursor,
-                "SELECT COUNT(DISTINCT ip_hash) FROM visitor_events WHERE created_at >= %s",
+                f"SELECT COUNT(DISTINCT ip_hash) FROM visitor_events WHERE created_at >= %s AND {visit_filter}",
                 (active_since,),
+            )
+            total_sessions = _scalar(
+                cursor,
+                f"""
+                SELECT COUNT(*) FROM (
+                    SELECT COALESCE(session_id, ip_hash) AS session_key
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {visit_filter}
+                    GROUP BY COALESCE(session_id, ip_hash)
+                ) sessions
+                """,
+                (since,),
+            )
+            active_sessions = _scalar(
+                cursor,
+                f"""
+                SELECT COUNT(DISTINCT COALESCE(session_id, ip_hash))
+                FROM visitor_events
+                WHERE created_at >= %s AND {visit_filter}
+                """,
+                (active_since,),
+            )
+            session_duration = _fetch_one(
+                cursor,
+                f"""
+                SELECT AVG(duration_seconds) AS average_seconds
+                FROM (
+                    SELECT TIMESTAMPDIFF(SECOND, MIN(created_at), MAX(created_at)) AS duration_seconds
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {visit_filter}
+                    GROUP BY COALESCE(session_id, ip_hash)
+                ) sessions
+                WHERE duration_seconds BETWEEN 0 AND 1800
+                """,
+                (since,),
             )
             returning_visitors = _scalar(
                 cursor,
-                """
+                f"""
                 SELECT COUNT(*) FROM (
                     SELECT ip_hash
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY ip_hash
                     HAVING COUNT(*) > 1
                 ) returning_ips
@@ -418,12 +618,12 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
             )
             bounced_visitors = _scalar(
                 cursor,
-                """
+                f"""
                 SELECT COUNT(*) FROM (
-                    SELECT ip_hash
+                    SELECT COALESCE(session_id, ip_hash) AS session_key
                     FROM visitor_events
-                    WHERE created_at >= %s
-                    GROUP BY ip_hash
+                    WHERE created_at >= %s AND {visit_filter}
+                    GROUP BY COALESCE(session_id, ip_hash)
                     HAVING COUNT(*) = 1
                 ) bounced_ips
                 """,
@@ -431,7 +631,7 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
             )
             time_spent = _fetch_one(
                 cursor,
-                """
+                f"""
                 SELECT AVG(seconds_spent) AS average_seconds
                 FROM (
                     SELECT TIMESTAMPDIFF(
@@ -440,7 +640,7 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                                LEAD(created_at) OVER (PARTITION BY COALESCE(session_id, ip_hash) ORDER BY created_at)
                            ) AS seconds_spent
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                 ) ranked
                 WHERE seconds_spent BETWEEN 1 AND 1800
                 """,
@@ -448,43 +648,60 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
             )
             click_overview = _fetch_one(
                 cursor,
-                """
+                f"""
                 SELECT COUNT(*) AS total_clicks,
                        COUNT(DISTINCT ip_hash) AS unique_clickers,
                        COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS clicking_sessions
                 FROM click_events
-                WHERE created_at >= %s
+                WHERE created_at >= %s AND {traffic_condition(mode)}
                 """,
                 (since,),
             )
             conversion_overview = _fetch_one(
                 cursor,
-                """
+                f"""
                 SELECT COUNT(*) AS total_conversions,
                        COUNT(DISTINCT ip_hash) AS converting_visitors,
                        COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS converting_sessions
                 FROM conversion_events
-                WHERE created_at >= %s
+                WHERE created_at >= %s AND {traffic_condition(mode)}
                 """,
                 (since,),
             )
             engagement_overview = _fetch_one(
                 cursor,
-                """
+                f"""
                 SELECT AVG(active_seconds) AS average_active_seconds,
                        AVG(max_scroll_percent) AS average_scroll_percent
                 FROM page_engagement_events
-                WHERE created_at >= %s
+                WHERE created_at >= %s AND {traffic_condition(mode)}
                 """,
                 (since,),
             )
             unique_visitors = int(overview.get("unique_visitors") or 0)
             total_visits = int(overview.get("total_visits") or 0)
             job_views = int(overview.get("job_application_views") or 0)
+            traffic_mix = _fetch_one(
+                cursor,
+                f"""
+                SELECT
+                    SUM(({LEGACY_CLASSIFICATION_SQL}) = 'human') AS human_visits,
+                    SUM(({LEGACY_CLASSIFICATION_SQL}) = 'bot') AS bot_visits,
+                    SUM(({LEGACY_CLASSIFICATION_SQL}) = 'suspicious') AS suspicious_visits,
+                    COUNT(*) AS all_visits
+                FROM visitor_events
+                WHERE created_at >= %s
+                """,
+                (since,),
+            )
             return {
+                "traffic_mode": mode,
                 "overview": {
                     "total_visits": total_visits,
                     "active_users": active_users,
+                    "total_sessions": total_sessions,
+                    "active_sessions": active_sessions,
+                    "average_session_duration_seconds": int(session_duration.get("average_seconds") or 0),
                     "daily_visitors": daily_visitors,
                     "monthly_visitors": monthly_visitors,
                     "returning_visitors": returning_visitors,
@@ -505,13 +722,17 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                     "target_unique_visitors": int(overview.get("target_unique_visitors") or 0),
                     "careers_visitors": int(overview.get("careers_visitors") or 0),
                     "job_application_views": job_views,
+                    "human_visits": int(traffic_mix.get("human_visits") or 0),
+                    "bot_visits": int(traffic_mix.get("bot_visits") or 0),
+                    "suspicious_visits": int(traffic_mix.get("suspicious_visits") or 0),
+                    "bot_percentage": _ratio(int(traffic_mix.get("bot_visits") or 0), int(traffic_mix.get("all_visits") or 0)),
                 },
                 "daily": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT DATE(created_at) AS label, COUNT(*) AS visits, COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY DATE(created_at)
                     ORDER BY label
                     """,
@@ -519,10 +740,10 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "hourly": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT HOUR(created_at) AS label, COUNT(*) AS visits
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY HOUR(created_at)
                     ORDER BY label
                     """,
@@ -530,27 +751,27 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "target_pages": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT page_title, path, COUNT(*) AS visits, COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s AND is_target_page = 1
+                    WHERE created_at >= %s AND is_target_page = 1 AND {visit_filter}
                     GROUP BY page_title, path
                     ORDER BY visits DESC
                     """,
                     (since,),
                 ),
-                "top_clicks": top_clicks(days, 10),
-                "top_conversions": conversion_summary(days, 10),
-                "top_engagement": engagement_summary(days, 10),
+                "top_clicks": top_clicks(days, 10, mode),
+                "top_conversions": conversion_summary(days, 10, mode),
+                "top_engagement": engagement_summary(days, 10, mode),
                 "entry_pages": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT path, page_title, COUNT(*) AS visits
                     FROM (
                         SELECT path, page_title, ip_hash, created_at,
                                ROW_NUMBER() OVER (PARTITION BY ip_hash ORDER BY created_at ASC) AS row_num
                         FROM visitor_events
-                        WHERE created_at >= %s
+                        WHERE created_at >= %s AND {visit_filter}
                     ) ranked
                     WHERE row_num = 1
                     GROUP BY path, page_title
@@ -561,13 +782,13 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "exit_pages": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT path, page_title, COUNT(*) AS visits
                     FROM (
                         SELECT path, page_title, ip_hash, created_at,
                                ROW_NUMBER() OVER (PARTITION BY ip_hash ORDER BY created_at DESC) AS row_num
                         FROM visitor_events
-                        WHERE created_at >= %s
+                        WHERE created_at >= %s AND {visit_filter}
                     ) ranked
                     WHERE row_num = 1
                     GROUP BY path, page_title
@@ -578,10 +799,10 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "top_pages": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT page_title, path, COUNT(*) AS visits, COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY page_title, path
                     ORDER BY visits DESC
                     LIMIT 12
@@ -590,14 +811,14 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "countries": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS label,
                            COUNT(*) AS visits,
                            COUNT(DISTINCT ip_hash) AS visitors,
                            MAX(latitude) AS latitude,
                            MAX(longitude) AS longitude
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY COALESCE(NULLIF(country, ''), 'Unknown')
                     ORDER BY visits DESC
                     LIMIT 20
@@ -606,14 +827,14 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "locations": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT
                         COALESCE(NULLIF(city, ''), 'Unknown') AS city,
                         COALESCE(NULLIF(country, ''), 'Unknown') AS country,
                         COUNT(*) AS visits,
                         COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY COALESCE(NULLIF(city, ''), 'Unknown'), COALESCE(NULLIF(country, ''), 'Unknown')
                     ORDER BY visits DESC
                     LIMIT 12
@@ -622,10 +843,10 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "devices": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT COALESCE(device_type, 'Unknown') AS label, COUNT(*) AS visits
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY COALESCE(device_type, 'Unknown')
                     ORDER BY visits DESC
                     """,
@@ -633,10 +854,10 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "browsers": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT COALESCE(browser, 'Unknown') AS label, COUNT(*) AS visits
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY COALESCE(browser, 'Unknown')
                     ORDER BY visits DESC
                     LIMIT 8
@@ -645,7 +866,7 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                 ),
                 "referrers": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT
                         CASE
                             WHEN referrer IS NULL OR referrer = '' THEN 'Direct'
@@ -659,16 +880,16 @@ def dashboard_data(days: int = 30) -> dict[str, Any]:
                         COUNT(*) AS visits,
                         COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY label
                     ORDER BY visits DESC
                     LIMIT 10
                     """,
                     (since,),
                 ),
-                "reports": report_data(days),
-                "live": realtime_data(),
-                "recent_visits": fetch_visits(days=days, limit=15),
+                "reports": report_data(days, mode),
+                "live": realtime_data(mode),
+                "recent_visits": fetch_visits(days=days, limit=15, mode=mode),
             }
         finally:
             cursor.close()
@@ -783,18 +1004,19 @@ def analytics_breakdown(kind: str, days: int = 30) -> dict[str, Any]:
             cursor.close()
 
 
-def report_data(days: int = 30) -> dict[str, list[dict[str, Any]]]:
+def report_data(days: int = 30, mode: str = "human") -> dict[str, list[dict[str, Any]]]:
     since = utc_since(days)
+    visit_filter = traffic_condition(mode)
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
         try:
             return {
                 "daily": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT DATE(created_at) AS period, COUNT(*) AS visits, COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY DATE(created_at)
                     ORDER BY period DESC
                     LIMIT 31
@@ -803,10 +1025,10 @@ def report_data(days: int = 30) -> dict[str, list[dict[str, Any]]]:
                 ),
                 "weekly": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT YEARWEEK(created_at, 1) AS period, COUNT(*) AS visits, COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY YEARWEEK(created_at, 1)
                     ORDER BY period DESC
                     LIMIT 12
@@ -815,10 +1037,10 @@ def report_data(days: int = 30) -> dict[str, list[dict[str, Any]]]:
                 ),
                 "monthly": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT DATE_FORMAT(created_at, '%Y-%m') AS period, COUNT(*) AS visits, COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY DATE_FORMAT(created_at, '%Y-%m')
                     ORDER BY period DESC
                     LIMIT 12
@@ -830,55 +1052,263 @@ def report_data(days: int = 30) -> dict[str, list[dict[str, Any]]]:
             cursor.close()
 
 
-def realtime_data() -> dict[str, Any]:
+def realtime_data(mode: str = "human") -> dict[str, Any]:
     active_since = utc_now() - timedelta(minutes=15)
+    visit_filter = traffic_condition(mode)
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
         try:
             return {
                 "active_visitors": _scalar(
                     cursor,
-                    "SELECT COUNT(DISTINCT ip_hash) FROM visitor_events WHERE created_at >= %s",
+                    f"SELECT COUNT(DISTINCT ip_hash) FROM visitor_events WHERE created_at >= %s AND {visit_filter}",
                     (active_since,),
                 ),
                 "live_page_views": _scalar(
                     cursor,
-                    "SELECT COUNT(*) FROM visitor_events WHERE created_at >= %s",
+                    f"SELECT COUNT(*) FROM visitor_events WHERE created_at >= %s AND {visit_filter}",
                     (active_since,),
                 ),
                 "active_sessions": _scalar(
                     cursor,
-                    "SELECT COUNT(DISTINCT COALESCE(session_id, ip_hash)) FROM visitor_events WHERE created_at >= %s",
+                    f"SELECT COUNT(DISTINCT COALESCE(session_id, ip_hash)) FROM visitor_events WHERE created_at >= %s AND {visit_filter}",
                     (active_since,),
                 ),
                 "current_locations": fetch_all(
                     cursor,
-                    """
+                    f"""
                     SELECT COALESCE(NULLIF(city, ''), 'Unknown') AS city,
                            COALESCE(NULLIF(country, ''), 'Unknown') AS country,
                            COUNT(DISTINCT ip_hash) AS visitors
                     FROM visitor_events
-                    WHERE created_at >= %s
+                    WHERE created_at >= %s AND {visit_filter}
                     GROUP BY COALESCE(NULLIF(city, ''), 'Unknown'), COALESCE(NULLIF(country, ''), 'Unknown')
                     ORDER BY visitors DESC
                     LIMIT 20
                     """,
                     (active_since,),
                 ),
-                "recent_page_views": fetch_visits(days=1, limit=25),
+                "recent_page_views": fetch_visits(days=1, limit=25, mode=mode),
             }
         finally:
             cursor.close()
 
 
-def top_clicks(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
+def geo_analytics_data(days: int = 30) -> dict[str, Any]:
     since = utc_since(days)
+    visit_filter = traffic_condition("human")
+    with mysql_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        try:
+            return {
+                "countries": fetch_all(
+                    cursor,
+                    f"""
+                    SELECT COALESCE(NULLIF(country, ''), 'Unknown') AS label,
+                           COUNT(*) AS visits,
+                           COUNT(DISTINCT ip_hash) AS visitors,
+                           MAX(latitude) AS latitude,
+                           MAX(longitude) AS longitude
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {visit_filter}
+                    GROUP BY COALESCE(NULLIF(country, ''), 'Unknown')
+                    ORDER BY visitors DESC, visits DESC
+                    LIMIT 50
+                    """,
+                    (since,),
+                ),
+                "cities": fetch_all(
+                    cursor,
+                    f"""
+                    SELECT COALESCE(NULLIF(city, ''), 'Unknown') AS city,
+                           COALESCE(NULLIF(country, ''), 'Unknown') AS country,
+                           COUNT(*) AS visits,
+                           COUNT(DISTINCT ip_hash) AS visitors
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {visit_filter}
+                    GROUP BY COALESCE(NULLIF(city, ''), 'Unknown'), COALESCE(NULLIF(country, ''), 'Unknown')
+                    ORDER BY visitors DESC, visits DESC
+                    LIMIT 50
+                    """,
+                    (since,),
+                ),
+            }
+        finally:
+            cursor.close()
+
+
+def traffic_analytics_data(days: int = 30, mode: str = "human") -> dict[str, Any]:
+    since = utc_since(days)
+    visit_filter = traffic_condition(mode)
+    with mysql_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        try:
+            return {
+                "mode": traffic_mode(mode),
+                "daily": fetch_all(
+                    cursor,
+                    f"""
+                    SELECT DATE(created_at) AS label,
+                           COUNT(*) AS visits,
+                           COUNT(DISTINCT ip_hash) AS visitors,
+                           COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS sessions
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {visit_filter}
+                    GROUP BY DATE(created_at)
+                    ORDER BY label
+                    """,
+                    (since,),
+                ),
+                "hourly": fetch_all(
+                    cursor,
+                    f"""
+                    SELECT DATE_FORMAT(created_at, '%Y-%m-%d %H:00') AS label,
+                           COUNT(*) AS visits,
+                           COUNT(DISTINCT ip_hash) AS visitors,
+                           COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS sessions
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {visit_filter}
+                    GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d %H:00')
+                    ORDER BY label
+                    LIMIT 240
+                    """,
+                    (since,),
+                ),
+            }
+        finally:
+            cursor.close()
+
+
+def bot_analytics_data(days: int = 30) -> dict[str, Any]:
+    since = utc_since(days)
+    bot_filter = traffic_condition("bot")
+    with mysql_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        try:
+            overview = _fetch_one(
+                cursor,
+                f"""
+                SELECT COUNT(*) AS total_bot_visits,
+                       COUNT(DISTINCT ip_hash) AS bot_ips,
+                       COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS bot_sessions,
+                       AVG(risk_score) AS average_risk_score
+                FROM visitor_events
+                WHERE created_at >= %s AND {bot_filter}
+                """,
+                (since,),
+            )
+            return {
+                "overview": {
+                    "total_bot_visits": int(overview.get("total_bot_visits") or 0),
+                    "bot_ips": int(overview.get("bot_ips") or 0),
+                    "bot_sessions": int(overview.get("bot_sessions") or 0),
+                    "average_risk_score": int(overview.get("average_risk_score") or 0),
+                },
+                "top_bots": fetch_all(
+                    cursor,
+                    f"""
+                    SELECT COALESCE(NULLIF(bot_name, ''), 'Unknown bot') AS label,
+                           COUNT(*) AS visits,
+                           COUNT(DISTINCT ip_hash) AS ips
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {bot_filter}
+                    GROUP BY COALESCE(NULLIF(bot_name, ''), 'Unknown bot')
+                    ORDER BY visits DESC
+                    LIMIT 25
+                    """,
+                    (since,),
+                ),
+                "volume": fetch_all(
+                    cursor,
+                    f"""
+                    SELECT DATE(created_at) AS label, COUNT(*) AS visits, COUNT(DISTINCT ip_hash) AS ips
+                    FROM visitor_events
+                    WHERE created_at >= %s AND {bot_filter}
+                    GROUP BY DATE(created_at)
+                    ORDER BY label
+                    """,
+                    (since,),
+                ),
+                "bot_ips": visitor_ip_summary(days=days, limit=500, mode="bot"),
+            }
+        finally:
+            cursor.close()
+
+
+def session_viewer_data(days: int = 30, query: str = "", mode: str = "human", limit: int = 500) -> list[dict[str, Any]]:
+    clauses = ["created_at >= %s", traffic_condition(mode)]
+    values: list[Any] = [utc_since(days)]
+    if query:
+        like = f"%{query}%"
+        clauses.append(
+            "("
+            "ip_address LIKE %s OR city LIKE %s OR country LIKE %s OR browser LIKE %s OR "
+            "device_type LIKE %s OR visitor_classification LIKE %s OR bot_name LIKE %s OR isp LIKE %s"
+            ")"
+        )
+        values.extend([like, like, like, like, like, like, like, like])
+    values.append(max(1, min(limit, 2000)))
+    with mysql_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        try:
+            sessions = fetch_all(
+                cursor,
+                f"""
+                SELECT COALESCE(session_id, ip_hash) AS session_id,
+                       MAX(ip_address) AS ip_address,
+                       MIN(created_at) AS started_at,
+                       MAX(created_at) AS ended_at,
+                       TIMESTAMPDIFF(SECOND, MIN(created_at), MAX(created_at)) AS duration_seconds,
+                       COUNT(*) AS page_views,
+                       COUNT(DISTINCT path) AS unique_pages,
+                       CASE
+                           WHEN SUM(({LEGACY_CLASSIFICATION_SQL}) = 'bot') > 0 THEN 'bot'
+                           WHEN SUM(({LEGACY_CLASSIFICATION_SQL}) = 'suspicious') > 0 THEN 'suspicious'
+                           ELSE 'human'
+                       END AS visitor_classification,
+                       MAX(is_bot) AS is_bot,
+                       COALESCE(MAX(bot_name), '') AS bot_name,
+                       MAX(risk_score) AS risk_score,
+                       COALESCE(MAX(classification_reason), '') AS classification_reason,
+                       COALESCE(MAX(browser), 'Unknown') AS browser,
+                       COALESCE(MAX(device_type), 'Unknown') AS device_type,
+                       COALESCE(MAX(country), 'Unknown') AS country,
+                       COALESCE(MAX(city), 'Unknown') AS city,
+                       COALESCE(MAX(isp), 'Unknown') AS isp
+                FROM visitor_events
+                WHERE {" AND ".join(clauses)}
+                GROUP BY COALESCE(session_id, ip_hash)
+                ORDER BY ended_at DESC
+                LIMIT %s
+                """,
+                values,
+            )
+            for session in sessions:
+                session["pages"] = fetch_all(
+                    cursor,
+                    """
+                    SELECT created_at, path, page_title
+                    FROM visitor_events
+                    WHERE session_id = %s OR (session_id IS NULL AND ip_hash = %s)
+                    ORDER BY created_at ASC
+                    LIMIT 50
+                    """,
+                    (session["session_id"], session["session_id"]),
+                )
+            return sessions
+        finally:
+            cursor.close()
+
+
+def top_clicks(days: int = 30, limit: int = 25, mode: str = "human") -> list[dict[str, Any]]:
+    since = utc_since(days)
+    event_filter = traffic_condition(mode)
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
         try:
             return fetch_all(
                 cursor,
-                """
+                f"""
                 SELECT COALESCE(NULLIF(element_text, ''), target_url, 'Unlabeled click') AS label,
                        path,
                        target_url,
@@ -886,7 +1316,7 @@ def top_clicks(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
                        COUNT(DISTINCT ip_hash) AS visitors,
                        COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS sessions
                 FROM click_events
-                WHERE created_at >= %s
+                WHERE created_at >= %s AND {event_filter}
                 GROUP BY COALESCE(NULLIF(element_text, ''), target_url, 'Unlabeled click'), path, target_url
                 ORDER BY clicks DESC
                 LIMIT %s
@@ -897,15 +1327,18 @@ def top_clicks(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
             cursor.close()
 
 
-def fetch_clicks(days: int = 30, query: str = "", limit: int = 500) -> list[dict[str, Any]]:
-    clauses = ["created_at >= %s"]
+def fetch_clicks(days: int = 30, query: str = "", limit: int = 500, mode: str = "all") -> list[dict[str, Any]]:
+    clauses = ["created_at >= %s", traffic_condition(mode)]
     values: list[Any] = [utc_since(days)]
     if query:
         like = f"%{query}%"
         clauses.append(
-            "(ip_address LIKE %s OR path LIKE %s OR element_text LIKE %s OR target_url LIKE %s OR browser LIKE %s)"
+            "("
+            "ip_address LIKE %s OR path LIKE %s OR element_text LIKE %s OR target_url LIKE %s OR "
+            "browser LIKE %s OR visitor_classification LIKE %s OR bot_name LIKE %s OR classification_reason LIKE %s"
+            ")"
         )
-        values.extend([like, like, like, like, like])
+        values.extend([like, like, like, like, like, like, like, like])
     values.append(max(1, min(limit, 1000)))
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
@@ -915,7 +1348,9 @@ def fetch_clicks(days: int = 30, query: str = "", limit: int = 500) -> list[dict
                 f"""
                 SELECT id, created_at, session_id, ip_address, path, page_title,
                        element_text, element_type, element_id, element_classes,
-                       target_url, referrer, user_agent, browser, device_type
+                       target_url, referrer, user_agent, browser, device_type,
+                       visitor_classification, is_bot, bot_name, risk_score,
+                       classification_reason
                 FROM click_events
                 WHERE {" AND ".join(clauses)}
                 ORDER BY created_at DESC
@@ -927,14 +1362,15 @@ def fetch_clicks(days: int = 30, query: str = "", limit: int = 500) -> list[dict
             cursor.close()
 
 
-def conversion_summary(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
+def conversion_summary(days: int = 30, limit: int = 25, mode: str = "human") -> list[dict[str, Any]]:
     since = utc_since(days)
+    event_filter = traffic_condition(mode)
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
         try:
             return fetch_all(
                 cursor,
-                """
+                f"""
                 SELECT conversion_type,
                        COALESCE(NULLIF(value_label, ''), target, conversion_type) AS label,
                        path,
@@ -942,7 +1378,7 @@ def conversion_summary(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
                        COUNT(DISTINCT ip_hash) AS visitors,
                        COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS sessions
                 FROM conversion_events
-                WHERE created_at >= %s
+                WHERE created_at >= %s AND {event_filter}
                 GROUP BY conversion_type, COALESCE(NULLIF(value_label, ''), target, conversion_type), path
                 ORDER BY conversions DESC
                 LIMIT %s
@@ -953,15 +1389,18 @@ def conversion_summary(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
             cursor.close()
 
 
-def fetch_conversions(days: int = 30, query: str = "", limit: int = 500) -> list[dict[str, Any]]:
-    clauses = ["created_at >= %s"]
+def fetch_conversions(days: int = 30, query: str = "", limit: int = 500, mode: str = "all") -> list[dict[str, Any]]:
+    clauses = ["created_at >= %s", traffic_condition(mode)]
     values: list[Any] = [utc_since(days)]
     if query:
         like = f"%{query}%"
         clauses.append(
-            "(ip_address LIKE %s OR conversion_type LIKE %s OR path LIKE %s OR target LIKE %s OR value_label LIKE %s)"
+            "("
+            "ip_address LIKE %s OR conversion_type LIKE %s OR path LIKE %s OR target LIKE %s OR "
+            "value_label LIKE %s OR visitor_classification LIKE %s OR bot_name LIKE %s OR classification_reason LIKE %s"
+            ")"
         )
-        values.extend([like, like, like, like, like])
+        values.extend([like, like, like, like, like, like, like, like])
     values.append(max(1, min(limit, 1000)))
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
@@ -970,7 +1409,9 @@ def fetch_conversions(days: int = 30, query: str = "", limit: int = 500) -> list
                 cursor,
                 f"""
                 SELECT id, created_at, session_id, ip_address, conversion_type, path,
-                       page_title, target, value_label, referrer, browser, device_type
+                       page_title, target, value_label, referrer, browser, device_type,
+                       visitor_classification, is_bot, bot_name, risk_score,
+                       classification_reason
                 FROM conversion_events
                 WHERE {" AND ".join(clauses)}
                 ORDER BY created_at DESC
@@ -982,14 +1423,15 @@ def fetch_conversions(days: int = 30, query: str = "", limit: int = 500) -> list
             cursor.close()
 
 
-def engagement_summary(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
+def engagement_summary(days: int = 30, limit: int = 25, mode: str = "human") -> list[dict[str, Any]]:
     since = utc_since(days)
+    event_filter = traffic_condition(mode)
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
         try:
             return fetch_all(
                 cursor,
-                """
+                f"""
                 SELECT path,
                        COALESCE(NULLIF(page_title, ''), path) AS label,
                        COUNT(*) AS samples,
@@ -997,7 +1439,7 @@ def engagement_summary(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
                        AVG(active_seconds) AS average_active_seconds,
                        AVG(max_scroll_percent) AS average_scroll_percent
                 FROM page_engagement_events
-                WHERE created_at >= %s
+                WHERE created_at >= %s AND {event_filter}
                 GROUP BY path, COALESCE(NULLIF(page_title, ''), path)
                 ORDER BY average_active_seconds DESC
                 LIMIT %s
@@ -1008,13 +1450,18 @@ def engagement_summary(days: int = 30, limit: int = 25) -> list[dict[str, Any]]:
             cursor.close()
 
 
-def fetch_engagement(days: int = 30, query: str = "", limit: int = 500) -> list[dict[str, Any]]:
-    clauses = ["created_at >= %s"]
+def fetch_engagement(days: int = 30, query: str = "", limit: int = 500, mode: str = "all") -> list[dict[str, Any]]:
+    clauses = ["created_at >= %s", traffic_condition(mode)]
     values: list[Any] = [utc_since(days)]
     if query:
         like = f"%{query}%"
-        clauses.append("(ip_address LIKE %s OR path LIKE %s OR page_title LIKE %s OR browser LIKE %s)")
-        values.extend([like, like, like, like])
+        clauses.append(
+            "("
+            "ip_address LIKE %s OR path LIKE %s OR page_title LIKE %s OR browser LIKE %s OR "
+            "visitor_classification LIKE %s OR bot_name LIKE %s OR classification_reason LIKE %s"
+            ")"
+        )
+        values.extend([like, like, like, like, like, like, like])
     values.append(max(1, min(limit, 1000)))
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
@@ -1023,7 +1470,9 @@ def fetch_engagement(days: int = 30, query: str = "", limit: int = 500) -> list[
                 cursor,
                 f"""
                 SELECT id, created_at, session_id, ip_address, path, page_title,
-                       active_seconds, max_scroll_percent, browser, device_type
+                       active_seconds, max_scroll_percent, browser, device_type,
+                       visitor_classification, is_bot, bot_name, risk_score,
+                       classification_reason
                 FROM page_engagement_events
                 WHERE {" AND ".join(clauses)}
                 ORDER BY created_at DESC
@@ -1035,15 +1484,19 @@ def fetch_engagement(days: int = 30, query: str = "", limit: int = 500) -> list[
             cursor.close()
 
 
-def visitor_ip_summary(days: int = 365, query: str = "", limit: int = 1000) -> list[dict[str, Any]]:
-    clauses = ["created_at >= %s"]
+def visitor_ip_summary(days: int = 365, query: str = "", limit: int = 1000, mode: str = "human") -> list[dict[str, Any]]:
+    clauses = ["created_at >= %s", traffic_condition(mode)]
     values: list[Any] = [utc_since(days)]
     if query:
         like = f"%{query}%"
         clauses.append(
-            "(ip_address LIKE %s OR city LIKE %s OR country LIKE %s OR browser LIKE %s OR device_type LIKE %s)"
+            "("
+            "ip_address LIKE %s OR city LIKE %s OR country LIKE %s OR browser LIKE %s OR "
+            "device_type LIKE %s OR visitor_classification LIKE %s OR bot_name LIKE %s OR "
+            "classification_reason LIKE %s OR isp LIKE %s"
+            ")"
         )
-        values.extend([like, like, like, like, like])
+        values.extend([like, like, like, like, like, like, like, like, like])
     values.append(max(1, min(limit, 5000)))
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
@@ -1056,6 +1509,11 @@ def visitor_ip_summary(days: int = 365, query: str = "", limit: int = 1000) -> l
                        COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS sessions,
                        MIN(created_at) AS first_seen_at,
                        MAX(created_at) AS last_seen_at,
+                       COALESCE(NULLIF(visitor_classification, ''), 'human') AS visitor_classification,
+                       MAX(is_bot) AS is_bot,
+                       COALESCE(MAX(bot_name), '') AS bot_name,
+                       MAX(risk_score) AS risk_score,
+                       COALESCE(MAX(classification_reason), '') AS classification_reason,
                        COALESCE(NULLIF(city, ''), 'Unknown') AS city,
                        COALESCE(NULLIF(country, ''), 'Unknown') AS country,
                        COALESCE(NULLIF(browser, ''), 'Unknown') AS browser,
@@ -1064,6 +1522,7 @@ def visitor_ip_summary(days: int = 365, query: str = "", limit: int = 1000) -> l
                 FROM visitor_events
                 WHERE {" AND ".join(clauses)}
                 GROUP BY ip_address,
+                         COALESCE(NULLIF(visitor_classification, ''), 'human'),
                          COALESCE(NULLIF(city, ''), 'Unknown'),
                          COALESCE(NULLIF(country, ''), 'Unknown'),
                          COALESCE(NULLIF(browser, ''), 'Unknown'),
@@ -1077,8 +1536,8 @@ def visitor_ip_summary(days: int = 365, query: str = "", limit: int = 1000) -> l
             cursor.close()
 
 
-def fetch_visits(days: int = 30, path: str = "", query: str = "", limit: int = 200) -> list[dict[str, Any]]:
-    where_sql, values = build_visit_filters(days, path, query)
+def fetch_visits(days: int = 30, path: str = "", query: str = "", limit: int = 200, mode: str = "human") -> list[dict[str, Any]]:
+    where_sql, values = build_visit_filters(days, path, query, mode)
     values.append(max(1, min(limit, 1000)))
     with mysql_connection() as connection:
         cursor = connection.cursor(dictionary=True)
@@ -1090,7 +1549,8 @@ def fetch_visits(days: int = 30, path: str = "", query: str = "", limit: int = 2
                     id, created_at, ip_address, path, page_title, status_code,
                     referrer, user_agent, browser, device_type, country, region,
                     city, timezone, isp, latitude, longitude, is_target_page,
-                    session_id, time_spent_seconds
+                    session_id, time_spent_seconds, visitor_classification, is_bot,
+                    bot_name, risk_score, classification_reason
                 FROM visitor_events
                 WHERE {where_sql}
                 ORDER BY created_at DESC
@@ -1289,29 +1749,69 @@ def refresh_analytics_aggregates(days: int = 90) -> int:
                 """
                 INSERT INTO analytics_aggregates (
                     period_type, period_start, visitors, unique_visitors, page_views,
-                    conversions, bounce_rate, created_at, updated_at
+                    conversions, human_visits, bot_visits, suspicious_visits, sessions,
+                    average_session_seconds, geo_stats, bounce_rate, created_at, updated_at
                 )
                 SELECT
                     'daily',
-                    DATE(created_at),
-                    COUNT(*),
-                    COUNT(DISTINCT ip_hash),
-                    COUNT(*),
-                    SUM(path IN ('/job-oss-bss-engineer.html', '/jobs/oss-bss-engineer')),
-                    0,
+                    event_day,
+                    visits,
+                    unique_visitors,
+                    visits,
+                    conversions,
+                    human_visits,
+                    bot_visits,
+                    suspicious_visits,
+                    sessions,
+                    average_session_seconds,
+                    COALESCE(geo.geo_stats, JSON_OBJECT()),
+                    bounce_rate,
                     %s,
                     %s
-                FROM visitor_events
-                WHERE created_at >= %s
-                GROUP BY DATE(created_at)
+                FROM (
+                    SELECT
+                        DATE(created_at) AS event_day,
+                        COUNT(*) AS visits,
+                        COUNT(DISTINCT ip_hash) AS unique_visitors,
+                        SUM(path IN ('/job-oss-bss-engineer.html', '/jobs/oss-bss-engineer')) AS conversions,
+                        SUM(({classification_sql}) = 'human') AS human_visits,
+                        SUM(({classification_sql}) = 'bot') AS bot_visits,
+                        SUM(({classification_sql}) = 'suspicious') AS suspicious_visits,
+                        COUNT(DISTINCT COALESCE(session_id, ip_hash)) AS sessions,
+                        0 AS average_session_seconds,
+                        0 AS bounce_rate
+                    FROM visitor_events
+                    WHERE created_at >= %s
+                    GROUP BY DATE(created_at)
+                ) daily
+                LEFT JOIN (
+                    SELECT event_day,
+                           JSON_OBJECTAGG(country_label, visits) AS geo_stats
+                    FROM (
+                        SELECT DATE(created_at) AS event_day,
+                               COALESCE(NULLIF(country, ''), 'Unknown') AS country_label,
+                               COUNT(*) AS visits
+                        FROM visitor_events
+                        WHERE created_at >= %s
+                        GROUP BY DATE(created_at), COALESCE(NULLIF(country, ''), 'Unknown')
+                    ) geo_counts
+                    GROUP BY event_day
+                ) geo ON geo.event_day = daily.event_day
                 ON DUPLICATE KEY UPDATE
                     visitors = VALUES(visitors),
                     unique_visitors = VALUES(unique_visitors),
                     page_views = VALUES(page_views),
                     conversions = VALUES(conversions),
+                    human_visits = VALUES(human_visits),
+                    bot_visits = VALUES(bot_visits),
+                    suspicious_visits = VALUES(suspicious_visits),
+                    sessions = VALUES(sessions),
+                    average_session_seconds = VALUES(average_session_seconds),
+                    geo_stats = VALUES(geo_stats),
+                    bounce_rate = VALUES(bounce_rate),
                     updated_at = VALUES(updated_at)
-                """,
-                (now, now, since),
+                """.format(classification_sql=LEGACY_CLASSIFICATION_SQL),
+                (now, now, since, since),
             )
             return cursor.rowcount
         finally:

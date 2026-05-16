@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Button Clicks | AMTEL Admin Analytics{% endblock %}
+{% block title %}Button Clicks | AMTEL Admin{% endblock %}
 {% block page_heading %}Button Click Tracking{% endblock %}
 
 {% block content %}
@@ -8,9 +8,10 @@
         <p class="text-uppercase text-danger fw-bold small mb-1">Click behavior</p>
         <h1 class="h3 fw-bold mb-0">Button & Link Clicks</h1>
     </div>
-    <a class="btn btn-outline-danger" href="{{ url_for('export_clicks', days=days, q=query) }}">Export CSV</a>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_clicks', days=days, q=query, traffic=traffic) }}">Export CSV</a>
 </div>
 
+{% set include_traffic_filter = true %}
 {% set search_label = "Search clicks" %}
 {% set search_placeholder = "IP, page, button text, target URL, browser" %}
 {% include "include/report_filter_panel.html" %}
@@ -22,13 +23,11 @@
     <div class="col-xl-5">
         <section class="panel h-100">
             <div class="panel-heading"><h2>Most Clicked Buttons</h2><span>Unique clickers included</span></div>
-            <ul class="stat-list">
-                {% for row in summary %}
-                    <li><span class="text-truncate">{{ row.label }} <small class="text-muted">({{ row.path }})</small></span><strong>{{ row.clicks }}</strong></li>
-                {% else %}
-                    <li class="text-muted">No clicks have been tracked yet.</li>
-                {% endfor %}
-            </ul>
+            <div class="stat-list" role="list">{%- for row in summary %}
+                <div role="listitem"><span class="text-truncate">{{ row.label }} <small class="text-muted">({{ row.path }})</small></span><strong>{{ row.clicks }}</strong></div>
+            {%- else %}
+                <div class="text-muted" role="listitem">No clicks have been tracked yet.</div>
+            {%- endfor %}</div>
         </section>
     </div>
     <div class="col-xl-7">
@@ -85,7 +84,7 @@ const clickLabels = {{ summary|map(attribute='label')|list|tojson }};
 const clickCounts = {{ summary|map(attribute='clicks')|list|tojson }};
 new Chart(document.getElementById('clickChart'), {
     type: 'bar',
-    data: { labels: clickLabels.slice(0, 12), datasets: [{ label: 'Clicks', data: clickCounts.slice(0, 12), backgroundColor: '#c8102e' }] },
+    data: { labels: clickLabels.slice(0, 12), datasets: [{ label: 'Clicks', data: clickCounts.slice(0, 12), backgroundColor: '#12345f', borderRadius: 10 }] },
     options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
 });
 </script>

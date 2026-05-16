@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Geo Analytics | AMTEL Admin{% endblock %}
+{% block page_heading %}Geo Analytics{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Real users only</p>
+        <h1 class="h3 fw-bold mb-0">Geo Analytics</h1>
+    </div>
+    {% include "include/days_select_form.html" %}
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% elif data %}
+    <div class="row g-4">
+        <div class="col-xl-12">
+            <section class="panel">
+                <div class="panel-heading"><h2>Traffic Map</h2><span>Human users with geo coordinates</span></div>
+                <div id="geoMap" class="geo-map"></div>
+            </section>
+        </div>
+        <div class="col-xl-7">
+            <section class="panel">
+                <div class="panel-heading"><h2>Country Distribution</h2><span>Human users only</span></div>
+                <canvas id="geoCountries" height="150"></canvas>
+            </section>
+        </div>
+        <div class="col-xl-5">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Top Cities</h2><span>Human users only</span></div>
+                <ul class="stat-list">
+                    {% for city in data.cities[:15] %}
+                        <li><span>{{ city.city }}, {{ city.country }}</span><strong>{{ city.visitors }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No geo data yet.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+    </div>
+
+    <section class="panel mt-4">
+        <div class="panel-heading"><h2>Country Details</h2><span>Visits and unique users</span></div>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th>Country</th><th>Visitors</th><th>Visits</th><th>Latitude</th><th>Longitude</th></tr></thead>
+                <tbody>
+                {% for country in data.countries %}
+                    <tr>
+                        <td>{{ country.label }}</td>
+                        <td>{{ country.visitors }}</td>
+                        <td>{{ country.visits }}</td>
+                        <td>{{ country.latitude or "" }}</td>
+                        <td>{{ country.longitude or "" }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="text-muted">No countries found.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if data %}
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+<script>
+const geoLabels = {{ data.countries|map(attribute='label')|list|tojson }};
+const geoVisitors = {{ data.countries|map(attribute='visitors')|list|tojson }};
+const geoPoints = {{ data.countries|tojson }};
+const map = L.map('geoMap').setView([8, 20], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+geoPoints
+    .filter((point) => point.latitude && point.longitude)
+    .forEach((point) => {
+        const radius = Math.max(6, Math.min(32, Number(point.visitors || 1) * 4));
+        L.circleMarker([Number(point.latitude), Number(point.longitude)], {
+            radius,
+            color: '#00a859',
+            fillColor: '#00a859',
+            fillOpacity: 0.35
+        }).addTo(map).bindPopup(`${point.label}: ${point.visitors} users / ${point.visits} visits`);
+    });
+new Chart(document.getElementById('geoCountries'), {
+    type: 'bar',
+    data: { labels: geoLabels.slice(0, 15), datasets: [{ label: 'Human users', data: geoVisitors.slice(0, 15), backgroundColor: '#12345f', borderRadius: 10 }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+});
+</script>
+{% endif %}
+{% endblock %}

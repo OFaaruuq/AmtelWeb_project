@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Traffic Analytics | AMTEL Admin{% endblock %}
+{% block page_heading %}Traffic Analytics{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Hourly and daily traffic</p>
+        <h1 class="h3 fw-bold mb-0">Traffic Analytics</h1>
+    </div>
+    {% set show_traffic_filter = true %}
+    {% include "include/days_select_form.html" %}
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% elif data %}
+    <div class="row g-4">
+        <div class="col-xl-12">
+            <section class="panel">
+                <div class="panel-heading"><h2>Daily Visits</h2><span>{{ traffic }} traffic</span></div>
+                <canvas id="dailyTraffic" height="120"></canvas>
+            </section>
+        </div>
+        <div class="col-xl-12">
+            <section class="panel">
+                <div class="panel-heading"><h2>Hourly Visits</h2><span>Latest hourly buckets</span></div>
+                <canvas id="hourlyTraffic" height="120"></canvas>
+            </section>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if data %}
+<script>
+const dailyLabels = {{ data.daily|map(attribute='label')|list|tojson }};
+const dailyVisits = {{ data.daily|map(attribute='visits')|list|tojson }};
+const dailySessions = {{ data.daily|map(attribute='sessions')|list|tojson }};
+const hourlyLabels = {{ data.hourly|map(attribute='label')|list|tojson }};
+const hourlyVisits = {{ data.hourly|map(attribute='visits')|list|tojson }};
+
+new Chart(document.getElementById('dailyTraffic'), {
+    type: 'line',
+    data: {
+        labels: dailyLabels,
+        datasets: [
+            { label: 'Visits', data: dailyVisits, borderColor: '#071b3a', backgroundColor: 'rgba(7, 27, 58, .12)', fill: true, tension: .35 },
+            { label: 'Sessions', data: dailySessions, borderColor: '#00a859', backgroundColor: 'rgba(0, 168, 89, .08)', tension: .35 }
+        ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+});
+
+new Chart(document.getElementById('hourlyTraffic'), {
+    type: 'bar',
+    data: { labels: hourlyLabels, datasets: [{ label: 'Visits', data: hourlyVisits, backgroundColor: '#12345f', borderRadius: 10 }] },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Bot Monitoring | AMTEL Admin{% endblock %}
+{% block page_heading %}Bot Monitoring{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <p class="text-uppercase text-danger fw-bold small mb-1">Separated crawler traffic</p>
+        <h1 class="h3 fw-bold mb-0">Bot Monitoring</h1>
+    </div>
+    {% include "include/days_select_form.html" %}
+</div>
+
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% elif data %}
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xxl-3"><div class="metric-card"><span>Bot Requests</span><strong>{{ data.overview.total_bot_visits }}</strong></div></div>
+        <div class="col-sm-6 col-xxl-3"><div class="metric-card"><span>Bot IPs</span><strong>{{ data.overview.bot_ips }}</strong></div></div>
+        <div class="col-sm-6 col-xxl-3"><div class="metric-card"><span>Bot Sessions</span><strong>{{ data.overview.bot_sessions }}</strong></div></div>
+        <div class="col-sm-6 col-xxl-3"><div class="metric-card"><span>Avg. Risk Score</span><strong>{{ data.overview.average_risk_score }}</strong></div></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-7">
+            <section class="panel">
+                <div class="panel-heading"><h2>Bot Volume Over Time</h2><span>Daily requests</span></div>
+                <canvas id="botVolume" height="130"></canvas>
+            </section>
+        </div>
+        <div class="col-xl-5">
+            <section class="panel h-100">
+                <div class="panel-heading"><h2>Top Bots</h2><span>Classified crawler families</span></div>
+                <ul class="stat-list">
+                    {% for bot in data.top_bots %}
+                        <li><span>{{ bot.label }}</span><strong>{{ bot.visits }}</strong></li>
+                    {% else %}
+                        <li class="text-muted">No bot traffic in this window.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+    </div>
+
+    <section class="panel mt-4">
+        <div class="panel-heading"><h2>Bot IP List</h2><span>Highest-risk crawler sources</span></div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>IP</th><th>Bot</th><th>Requests</th><th>Sessions</th><th>Risk</th><th>Location</th><th>ISP</th></tr></thead>
+                <tbody>
+                {% for visitor in data.bot_ips %}
+                    <tr>
+                        <td><code>{{ visitor.ip_address }}</code></td>
+                        <td>{{ visitor.bot_name or visitor.visitor_classification }}</td>
+                        <td>{{ visitor.visits }}</td>
+                        <td>{{ visitor.sessions }}</td>
+                        <td>{{ visitor.risk_score or 0 }}</td>
+                        <td>{{ visitor.city }}, {{ visitor.country }}</td>
+                        <td class="small">{{ visitor.isp or "Unknown" }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="text-muted">No bot IPs found.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if data %}
+<script>
+const botLabels = {{ data.volume|map(attribute='label')|list|tojson }};
+const botVisits = {{ data.volume|map(attribute='visits')|list|tojson }};
+new Chart(document.getElementById('botVolume'), {
+    type: 'line',
+    data: { labels: botLabels, datasets: [{ label: 'Bot requests', data: botVisits, borderColor: '#ec1b23', backgroundColor: 'rgba(236, 27, 35, .1)', fill: true, tension: .35 }] },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+});
+</script>
+{% endif %}
+{% endblock %}

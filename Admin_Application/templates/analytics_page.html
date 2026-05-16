@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ data.title if data else "Analytics" }} | AMTEL Admin Analytics{% endblock %}
+{% block title %}{{ data.title if data else "Analytics" }} | AMTEL Admin{% endblock %}
 {% block page_heading %}{{ data.title if data else "Analytics" }}{% endblock %}
 
 {% block content %}
@@ -91,8 +91,8 @@ new Chart(document.getElementById('breakdownChart'), {
     data: {
         labels: labels.slice(0, 15),
         datasets: [
-            { label: 'Visits', data: visits.slice(0, 15), backgroundColor: '#c8102e' },
-            { label: 'Unique visitors', data: visitors.slice(0, 15), backgroundColor: '#111827' }
+            { label: 'Visits', data: visits.slice(0, 15), backgroundColor: '#12345f', borderRadius: 10 },
+            { label: 'Unique visitors', data: visitors.slice(0, 15), backgroundColor: '#00a859', borderRadius: 10 }
         ]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }

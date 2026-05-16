@@ -22,11 +22,18 @@ CREATE TABLE IF NOT EXISTS click_events (
     user_agent TEXT,
     browser VARCHAR(80),
     device_type VARCHAR(40),
+    visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+    is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+    bot_name VARCHAR(120),
+    risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    classification_reason VARCHAR(255),
+    isp VARCHAR(255),
     INDEX idx_click_created_at (created_at),
     INDEX idx_click_path_created_at (path, created_at),
     INDEX idx_click_ip_created_at (ip_hash, created_at),
     INDEX idx_click_session_created_at (session_id, created_at),
-    INDEX idx_click_element_text (element_text, created_at)
+    INDEX idx_click_element_text (element_text, created_at),
+    INDEX idx_click_class_created (visitor_classification, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS page_engagement_events (
@@ -43,10 +50,17 @@ CREATE TABLE IF NOT EXISTS page_engagement_events (
     user_agent TEXT,
     browser VARCHAR(80),
     device_type VARCHAR(40),
+    visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+    is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+    bot_name VARCHAR(120),
+    risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    classification_reason VARCHAR(255),
+    isp VARCHAR(255),
     INDEX idx_engagement_created_at (created_at),
     INDEX idx_engagement_path_created_at (path, created_at),
     INDEX idx_engagement_ip_created_at (ip_hash, created_at),
-    INDEX idx_engagement_session_created_at (session_id, created_at)
+    INDEX idx_engagement_session_created_at (session_id, created_at),
+    INDEX idx_engagement_class_created (visitor_classification, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS conversion_events (
@@ -65,10 +79,17 @@ CREATE TABLE IF NOT EXISTS conversion_events (
     user_agent TEXT,
     browser VARCHAR(80),
     device_type VARCHAR(40),
+    visitor_classification VARCHAR(20) NOT NULL DEFAULT 'human',
+    is_bot BOOLEAN NOT NULL DEFAULT FALSE,
+    bot_name VARCHAR(120),
+    risk_score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    classification_reason VARCHAR(255),
+    isp VARCHAR(255),
     INDEX idx_conversion_created_at (created_at),
     INDEX idx_conversion_type_created_at (conversion_type, created_at),
     INDEX idx_conversion_ip_created_at (ip_hash, created_at),
-    INDEX idx_conversion_session_created_at (session_id, created_at)
+    INDEX idx_conversion_session_created_at (session_id, created_at),
+    INDEX idx_conversion_class_created (visitor_classification, created_at)
 ) ENGINE=InnoDB;
 
 SOURCE schema.sql;

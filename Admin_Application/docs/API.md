@@ -1,4 +1,4 @@
-# AMTEL Admin Analytics API
+# AMTEL Admin API
 
 All API endpoints require an authenticated admin session. Login through `/login` before calling them from a browser or internal tool.
 

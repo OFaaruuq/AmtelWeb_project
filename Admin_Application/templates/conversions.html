@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Conversions | AMTEL Admin Analytics{% endblock %}
+{% block title %}Conversions | AMTEL Admin{% endblock %}
 {% block page_heading %}Conversion Tracking{% endblock %}
 
 {% block content %}
@@ -8,9 +8,10 @@
         <p class="text-uppercase text-danger fw-bold small mb-1">Conversion funnel</p>
         <h1 class="h3 fw-bold mb-0">Conversions</h1>
     </div>
-    <a class="btn btn-outline-danger" href="{{ url_for('export_conversions', days=days, q=query) }}">Export CSV</a>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_conversions', days=days, q=query, traffic=traffic) }}">Export CSV</a>
 </div>
 
+{% set include_traffic_filter = true %}
 {% set search_label = "Search conversions" %}
 {% set search_placeholder = "IP, type, page, target, label" %}
 {% include "include/report_filter_panel.html" %}
@@ -22,13 +23,11 @@
     <div class="col-xl-5">
         <section class="panel h-100">
             <div class="panel-heading"><h2>Conversion Summary</h2><span>Visitors and sessions</span></div>
-            <ul class="stat-list">
-                {% for row in summary %}
-                    <li><span>{{ row.label }} <small class="text-muted">{{ row.conversion_type }}</small></span><strong>{{ row.conversions }}</strong></li>
-                {% else %}
-                    <li class="text-muted">No conversions tracked yet.</li>
-                {% endfor %}
-            </ul>
+            <div class="stat-list" role="list">{%- for row in summary %}
+                <div role="listitem"><span>{{ row.label }} <small class="text-muted">{{ row.conversion_type }}</small></span><strong>{{ row.conversions }}</strong></div>
+            {%- else %}
+                <div class="text-muted" role="listitem">No conversions tracked yet.</div>
+            {%- endfor %}</div>
         </section>
     </div>
     <div class="col-xl-7">
@@ -72,7 +71,7 @@ const conversionLabels = {{ summary|map(attribute='label')|list|tojson }};
 const conversionCounts = {{ summary|map(attribute='conversions')|list|tojson }};
 new Chart(document.getElementById('conversionChart'), {
     type: 'bar',
-    data: { labels: conversionLabels.slice(0, 12), datasets: [{ label: 'Conversions', data: conversionCounts.slice(0, 12), backgroundColor: '#c8102e' }] },
+    data: { labels: conversionLabels.slice(0, 12), datasets: [{ label: 'Conversions', data: conversionCounts.slice(0, 12), backgroundColor: '#00a859', borderRadius: 10 }] },
     options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
 });
 </script>

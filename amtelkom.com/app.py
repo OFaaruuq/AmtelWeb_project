@@ -4,6 +4,7 @@ import json
 import os
 import time
 import uuid
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
@@ -22,6 +23,7 @@ load_dotenv(BASE_DIR / ".env")
 load_dotenv()
 
 from analytics import (
+    SESSION_IDLE_MINUTES,
     TARGET_PAGE_LABELS,
     analytics_error_message,
     empty_dashboard_data,
@@ -82,6 +84,9 @@ app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "change-me-in-productio
 app.config["ANALYTICS_READY"] = False
 app.config["ANALYTICS_LAST_SETUP_ATTEMPT"] = 0.0
 app.config["ANALYTICS_RETRY_SECONDS"] = int(os.getenv("ANALYTICS_RETRY_SECONDS", "30"))
+PUBLIC_RATE_LIMIT_PER_MINUTE = int(os.getenv("PUBLIC_RATE_LIMIT_PER_MINUTE", "180"))
+PUBLIC_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("PUBLIC_RATE_LIMIT_WINDOW_SECONDS", "60"))
+PUBLIC_RATE_LIMITS: dict[str, deque[float]] = defaultdict(deque)
 
 # Compatibility alias for shared setup commands and operational scripts.
 init_database = init_analytics_db
@@ -213,6 +218,24 @@ def should_track_request(response) -> bool:
     return "text/html" in response.content_type
 
 
+@app.before_request
+def rate_limit_public_traffic():
+    if request.path.startswith(("/admin", "/css/", "/img/", "/js/", "/lib/", "/static/")):
+        return None
+    if request.path in {"/favicon.ico", "/robots.txt"}:
+        return None
+
+    now = time.time()
+    ip_address = client_ip_address()
+    attempts = PUBLIC_RATE_LIMITS[ip_address]
+    while attempts and attempts[0] < now - PUBLIC_RATE_LIMIT_WINDOW_SECONDS:
+        attempts.popleft()
+    attempts.append(now)
+    if len(attempts) > PUBLIC_RATE_LIMIT_PER_MINUTE:
+        abort(429)
+    return None
+
+
 @app.after_request
 def track_visitor(response):
     if not should_track_request(response):
@@ -242,7 +265,7 @@ def track_visitor(response):
     response.set_cookie(
         "amtelkom_session_id",
         current_session_id,
-        max_age=60 * 60 * 24 * 30,
+        max_age=60 * SESSION_IDLE_MINUTES,
         httponly=True,
         samesite="Lax",
     )
@@ -288,7 +311,7 @@ def analytics_json_response(payload: dict[str, Any], status: int = 200):
     response.set_cookie(
         "amtelkom_session_id",
         visitor_session_id(),
-        max_age=60 * 60 * 24 * 30,
+        max_age=60 * SESSION_IDLE_MINUTES,
         httponly=True,
         samesite="Lax",
     )

@@ -1,4 +1,4 @@
-# AMTEL Admin Analytics
+# AMTEL Admin
 
 Professional Flask admin application for monitoring the AMTEL website through a MySQL analytics database.
 

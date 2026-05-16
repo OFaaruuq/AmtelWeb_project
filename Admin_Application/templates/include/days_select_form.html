@@ -4,5 +4,13 @@
             <option value="{{ option }}" {% if days == option %}selected{% endif %}>Last {{ option }} days</option>
         {% endfor %}
     </select>
+    {% if show_traffic_filter|default(false) %}
+    <select class="form-select" name="traffic" aria-label="Traffic type">
+        <option value="human" {% if traffic == "human" %}selected{% endif %}>Hide bots</option>
+        <option value="all" {% if traffic == "all" %}selected{% endif %}>Show all</option>
+        <option value="bot" {% if traffic == "bot" %}selected{% endif %}>Bots only</option>
+        <option value="suspicious" {% if traffic == "suspicious" %}selected{% endif %}>Suspicious only</option>
+    </select>
+    {% endif %}
     <button class="btn btn-dark" type="submit">Apply</button>
 </form>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Visitor Log | AMTEL Admin Analytics{% endblock %}
+{% block title %}Visitor Log | AMTEL Admin{% endblock %}
 
 {% block content %}
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
@@ -7,12 +7,13 @@
         <p class="text-uppercase text-danger fw-bold small mb-1">Raw visitor intelligence</p>
         <h1 class="h3 fw-bold mb-0">Visitor Log</h1>
     </div>
-    <a class="btn btn-outline-danger" href="{{ url_for('export_visits', days=days, path=path, q=query) }}">Export CSV</a>
+    <a class="btn btn-outline-danger" href="{{ url_for('export_visits', days=days, path=path, q=query, traffic=traffic) }}">Export CSV</a>
 </div>
 
 {% set include_path_filter = true %}
+{% set include_traffic_filter = true %}
 {% set search_label = "Search" %}
-{% set search_placeholder = "IP, city, country, browser, page, referrer" %}
+{% set search_placeholder = "IP, city, country, browser, page, referrer, bot" %}
 {% include "include/report_filter_panel.html" %}
 
 {% if error %}
@@ -28,6 +29,7 @@
                     <th>Location</th>
                     <th>Page</th>
                     <th>Device</th>
+                    <th>Classification</th>
                     <th>Browser</th>
                     <th>ISP</th>
                     <th>Referrer</th>
@@ -47,12 +49,16 @@
                         <code>{{ visit.path }}</code>
                     </td>
                     <td>{{ visit.device_type or "Unknown" }}</td>
+                    <td>
+                        <strong>{{ visit.visitor_classification or "human" }}</strong><br>
+                        <span class="text-muted small">Risk {{ visit.risk_score or 0 }}{% if visit.bot_name %} · {{ visit.bot_name }}{% endif %}</span>
+                    </td>
                     <td>{{ visit.browser or "Unknown" }}</td>
                     <td class="small">{{ visit.isp or "Unknown" }}</td>
                     <td class="small text-break">{{ visit.referrer or "Direct" }}</td>
                 </tr>
             {% else %}
-                <tr><td colspan="8" class="text-muted">No visits match this filter.</td></tr>
+                <tr><td colspan="9" class="text-muted">No visits match this filter.</td></tr>
             {% endfor %}
             </tbody>
         </table>
